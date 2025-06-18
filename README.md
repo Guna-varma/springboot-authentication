@@ -43,6 +43,21 @@ A secure, production-ready Spring Boot 3 application with complete user authenti
 
 ---
 
+## 🔐 API Endpoints
+
+### 📥 Authentication
+
+| Method | Endpoint                      | Description                    |
+|--------|-------------------------------|--------------------------------|
+| POST   | `/api/auth/signup`           | Register a new user            |
+| POST   | `/api/auth/signin`           | Login with username/password   |
+| GET    | `/api/auth/google/login`     | Login with Google OAuth2       |
+| POST   | `/api/auth/forgot-password`  | Send OTP to registered email   |
+| POST   | `/api/auth/verify-otp`       | Verify OTP from user           |
+| POST   | `/api/auth/reset-password`   | Reset password using valid OTP |
+
+---
+
 ## Project Structure
 
 ```bash
