@@ -19,6 +19,6 @@ public interface OtpTokenRepository extends JpaRepository<OtpToken, Long> {
     @Transactional
     @Query("DELETE FROM OtpToken t WHERE t.email = :email")
     void deleteByEmail(@Param("email") String email);
-//    void deleteByEmail(String email);
+
 }
 

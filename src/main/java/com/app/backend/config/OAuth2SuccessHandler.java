@@ -59,59 +59,6 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write("{\"token\": \"" + jwt + "\"}");
 
-//        User user = userRepository.findByEmail(email).orElseGet(() -> {
-//            User newUser = new User();
-//            newUser.setEmail(email);
-//            newUser.setFullName(name);
-//            newUser.setPassword(""); // Not needed for OAuth
-//            newUser.setGender("Not Specified");
-//
-//            Role defaultRole = roleRepository.findByName("STUDENT")
-//                    .orElseThrow(() -> new RuntimeException("Default role not found"));
-//            newUser.setRole(defaultRole);
-//
-//            return userRepository.save(newUser);
-//        });
-
-
-//        String token = jwtService.generateToken(user.getEmail());
-//
-//        // Send token in response (you can redirect or return JSON as needed)
-//        response.setContentType("application/json");
-//        response.getWriter().write("{\"token\": \"" + token + "\"}");
     }
 }
-
-//@Component
-//@RequiredArgsConstructor
-//public class OAuth2SuccessHandler implements org.springframework.security.web.authentication.AuthenticationSuccessHandler {
-//
-//    private final UserRepository userRepository;
-//    private final RoleRepository roleRepository;
-//    private final JwtService jwtService;
-//
-//    @Override
-//    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
-//            throws IOException, ServletException {
-//
-//        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-//        String email = oAuth2User.getAttribute("email");
-//        String name = oAuth2User.getAttribute("name");
-//
-//        User user = userRepository.findByEmail(email)
-//                .orElseGet(() -> {
-//                    Role defaultRole = roleRepository.findByName("STUDENT").orElseThrow();
-//                    User newUser = User.builder()
-//                            .email(email)
-//                            .fullName(name)
-//                            .enabled(true)
-//                            .roles(Set.of(defaultRole))
-//                            .build();
-//                    return userRepository.save(newUser);
-//                });
-//
-//        String jwt = jwtService.generateToken(user.getEmail());
-//        response.sendRedirect("/swagger-ui/index.html?token=" + jwt); // or redirect to frontend
-//    }
-//}
 

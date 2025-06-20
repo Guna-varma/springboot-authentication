@@ -67,36 +67,3 @@ public class JwtService {
     }
 
 }
-
-
-//@Service
-//public class JwtService {
-//
-//    @Value("${jwt.secret}")
-//    private String jwtSecret;
-//
-//    private static final long EXPIRATION = 30 * 60 * 1000; // 30 minutes
-//
-//    public String generateToken(String email) {
-//        return Jwts.builder()
-//                .subject(email)
-//                .issuedAt(new Date())
-//                .expiration(new Date(System.currentTimeMillis() + EXPIRATION))
-//                .signWith(getSignKey())
-//                .compact();
-//    }
-//
-//    public String extractEmail(String token) {
-//        return Jwts.parserBuilder()
-//                .setSigningKey(getSignKey())
-//                .build()
-//                .parseClaimsJws(token)
-//                .getBody()
-//                .getSubject();
-//    }
-//
-//    private Key getSignKey() {
-//        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
-//    }
-//}
-

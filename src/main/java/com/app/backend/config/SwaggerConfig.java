@@ -25,22 +25,3 @@ public class SwaggerConfig {
                 .build();
     }
 }
-
-//@Configuration
-//public class SwaggerConfig {
-//
-//    @Bean
-//    public OpenAPI customOpenAPI() {
-//        return new OpenAPI()
-//                .info(new Info().title("Auth API").version("1.0").description("API documentation for authentication service"));
-//    }
-//
-//    @Bean
-//    public GroupedOpenApi publicApi() {
-//        return GroupedOpenApi.builder()
-//                .group("public")
-//                .pathsToMatch("/api/**")
-//                .build();
-//    }
-//}
-
