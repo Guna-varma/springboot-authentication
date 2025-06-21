@@ -2,12 +2,15 @@ package com.app.backend.dto;
 
 import lombok.*;
 
-@Data
+@Getter
+@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class AuthResponse {
     private String token;
+    private String refreshToken;
     private UserResponseDTO user;
 }
+
 

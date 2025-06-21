@@ -1,6 +1,7 @@
 package com.app.backend.service;
 
 import com.app.backend.entity.AuthProvider;
+import com.app.backend.entity.Gender;
 import com.app.backend.entity.Role;
 import com.app.backend.entity.User;
 import com.app.backend.repository.RoleRepository;
@@ -35,15 +36,14 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
             Role defaultRole = roleRepository.findByName("STUDENT")
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
 
-            User newUser = User.builder()
+            return User.builder()
                     .email(email)
                     .fullName(name)
                     .provider(AuthProvider.GOOGLE)
+                    .gender(Gender.NOT_SPECIFIED)
                     .enabled(true)
                     .role(defaultRole)
                     .build();
-
-            return userRepository.save(newUser);
         });
 
         return new DefaultOAuth2User(
@@ -53,4 +53,3 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         );
     }
 }
-

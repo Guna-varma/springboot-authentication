@@ -59,11 +59,21 @@ public class JwtService {
 
     private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         Claims claims = Jwts.parserBuilder()
+                .setAllowedClockSkewSeconds(60) // allow 60s time skew
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
         return claimsResolver.apply(claims);
     }
+
+//    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+//        Claims claims = Jwts.parserBuilder()
+//                .setSigningKey(getSigningKey())
+//                .build()
+//                .parseClaimsJws(token)
+//                .getBody();
+//        return claimsResolver.apply(claims);
+//    }
 
 }

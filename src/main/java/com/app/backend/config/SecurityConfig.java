@@ -25,7 +25,6 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
-    private final OAuth2SuccessHandler oauth2SuccessHandler;
     private final CustomUserDetailsService customUserDetailsService;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
