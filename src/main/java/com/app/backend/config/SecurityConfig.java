@@ -29,13 +29,35 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
-
+//@Bean
+//public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+//    http
+//            .csrf(csrf -> csrf.disable())
+//            .authorizeHttpRequests(authorize -> authorize
+//                    .requestMatchers("/api/auth/**", "/api/otp/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+//                    .anyRequest().authenticated()
+//            )
+//            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//            .oauth2Login(oauth2 -> oauth2
+//                    .userInfoEndpoint(userInfo -> userInfo
+//                            .userService(customOAuth2UserService)
+//                    )
+//                    .successHandler(oAuth2SuccessHandler)
+//            );
+//
+//    return http.build();
+//}
 @Bean
 public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/api/auth/**", "/api/otp/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                    .requestMatchers(
+                            "/api/auth/**",
+                            "/api/otp/**",
+                            "/swagger-ui/**",
+                            "/v3/api-docs/**"
+                    ).permitAll()
                     .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -46,23 +68,25 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
                     .successHandler(oAuth2SuccessHandler)
             );
 
+    // ✅ Register your JWT filter BEFORE UsernamePasswordAuthenticationFilter
+    http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
     return http.build();
 }
-
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-        @Bean
-        public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
-            AuthenticationManagerBuilder authBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
-            authBuilder
-                    .userDetailsService(customUserDetailsService)
-                    .passwordEncoder(passwordEncoder());
-            return authBuilder.build();
-        }
+    @Bean
+    public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+        AuthenticationManagerBuilder authBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
+        authBuilder
+                .userDetailsService(customUserDetailsService)
+                .passwordEncoder(passwordEncoder());
+        return authBuilder.build();
+    }
 
 }
 
