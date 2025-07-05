@@ -17,5 +17,5 @@ public interface UserService {
     List<User> getUsersByRole(String roleName);
 
     List<User> getAllUsers();
-    void updateUserRole(Long userId, @NotBlank(message = "Role name is required") @Pattern(regexp = "^(ADMIN|TUTOR|STAFF|STUDENT)$", message = "Invalid role") String roleName);
+    void updateUserRole(Long userId, @NotBlank(message = "Role name is required") @Pattern(regexp = "^(ADMIN|TUTOR|VOLUNTEER|REGISTERED_USER)$", message = "Invalid role") String roleName);
 }

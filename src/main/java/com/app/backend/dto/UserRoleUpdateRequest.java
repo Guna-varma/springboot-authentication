@@ -11,6 +11,6 @@ import lombok.*;
 public class UserRoleUpdateRequest {
 
     @NotBlank(message = "Role name is required")
-    @Pattern(regexp = "^(ADMIN|TUTOR|STAFF|STUDENT)$", message = "Invalid role")
+    @Pattern(regexp = "^(ADMIN|TUTOR|VOLUNTEER|REGISTERED_USER)$", message = "Invalid role")
     private String roleName;
 }

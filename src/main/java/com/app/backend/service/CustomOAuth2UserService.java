@@ -33,7 +33,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         String name = oAuth2User.getAttribute("name");
 
         User user = userRepository.findByEmail(email).orElseGet(() -> {
-            Role defaultRole = roleRepository.findByName("STUDENT")
+            Role defaultRole = roleRepository.findByName("REGISTERED_USER")
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
 
             return User.builder()

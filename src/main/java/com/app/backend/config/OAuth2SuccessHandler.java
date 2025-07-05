@@ -45,7 +45,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         Optional<User> optionalUser = userRepository.findByEmail(email);
 
         User user = optionalUser.orElseGet(() -> {
-            Role defaultRole = roleRepository.findByName("STUDENT")
+            Role defaultRole = roleRepository.findByName("REGISTERED_USER")
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
 
             User newUser = new User();
