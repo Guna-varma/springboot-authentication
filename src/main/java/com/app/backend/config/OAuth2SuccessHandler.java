@@ -22,9 +22,12 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
@@ -65,14 +68,30 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String jwt = jwtService.generateToken(user.getEmail());
         String refreshToken = redisRefreshTokenService.createRefreshToken(email);
 
+        // Detect if running in production (Railway)
+        boolean isProd = request.getServerName().contains("railway.app");
+
         Cookie refreshTokenCookie = new Cookie("refreshToken", refreshToken);
         refreshTokenCookie.setHttpOnly(true);
-        refreshTokenCookie.setSecure(true); // Set to false in local dev if needed
+        refreshTokenCookie.setSecure(isProd); // HTTPS in production, not in local dev
+//        refreshTokenCookie.setSecure(true); // Set to false in local dev if needed
         refreshTokenCookie.setPath("/");
         refreshTokenCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
         response.addCookie(refreshTokenCookie);
 
-        String redirectUrl = "https://springboot-auth.up.railway.app/oauth2/redirect?token=" + jwt;
+        // Redirect to frontend with token
+        String frontendUrl = isProd
+                ? "https://gs-hub.vercel.app" // 🔁 your Vercel frontend
+                : "http://localhost:3000";    // local dev
+
+        String redirectUrl = frontendUrl + "/oauth2/redirect?token=" + jwt;
+
+        log.info("OAuth2 login success for: {}", email);
+        log.info("Redirecting to: {}", redirectUrl);
+
         response.sendRedirect(redirectUrl);
+
+//        String redirectUrl = "http://localhost:3000/oauth2/redirect?token=" + jwt;
+//        response.sendRedirect(redirectUrl);
     }
 }

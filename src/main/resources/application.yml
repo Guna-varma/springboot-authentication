@@ -4,7 +4,11 @@ server:
 
 spring:
   config:
-    import: optional:file:.env.properties
+    import: optional:file:.env.${SPRING_PROFILE:dev}.properties
+#    import: optional:file:.env.properties
+
+  profiles:
+    active: ${SPRING_PROFILE:dev}
 
   data:
     redis:
@@ -53,7 +57,8 @@ spring:
           google:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
-            redirect-uri: https://springboot-auth.up.railway.app/login/oauth2/code/google
+            redirect-uri: ${GOOGLE_REDIRECT_URI}
+#            redirect-uri: https://springboot-auth.up.railway.app/login/oauth2/code/google
             scope:
               - email
               - profile

@@ -1,5 +1,10 @@
 HELP.md
 .env.properties
+.env.dev.properties     # local dev env vars
+.env.prod.properties    # prod vars (Railway)
+.env*
+
+/target/
 
 
 target/
