@@ -72,7 +72,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         refreshTokenCookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
         response.addCookie(refreshTokenCookie);
 
-        String redirectUrl = "http://localhost:3000/oauth2/redirect?token=" + jwt;
+        String redirectUrl = "https://springboot-auth.up.railway.app/oauth2/redirect?token=" + jwt;
         response.sendRedirect(redirectUrl);
     }
 }
