@@ -7,10 +7,15 @@ spring:
 
   data:
     redis:
-      host: localhost
-#      host: redis
-      port: 6379
-      timeout: 60000
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+#  data:
+#    redis:
+##      host: localhost # for local run
+#      host: redis # for docker run
+#      port: 6379
+#      timeout: 60000
 
 #
 #  redis:
