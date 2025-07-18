@@ -13,8 +13,8 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-//                        .allowedOriginPatterns(
-                        .allowedOrigins(
+                        .allowedOriginPatterns(
+//                        .allowedOrigins(
                                 "http://localhost:3000",        // local dev
 //                                "https://gs-hub.vercel.app"     // your live frontend
                                 "https://*.vercel.app"
