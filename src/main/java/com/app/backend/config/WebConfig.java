@@ -13,7 +13,8 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOriginPatterns(
+//                        .allowedOriginPatterns(
+                        .allowedOrigins(
                                 "http://localhost:3000",        // local dev
 //                                "https://gs-hub.vercel.app"     // your live frontend
                                 "https://*.vercel.app"
@@ -25,18 +26,4 @@ public class WebConfig {
         };
     }
 
-    /*
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000")
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedHeaders("*")
-                        .allowCredentials(true);
-            }
-        };
-    } */
 }

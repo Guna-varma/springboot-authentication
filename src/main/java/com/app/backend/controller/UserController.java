@@ -103,4 +103,19 @@ public class UserController {
                 ))
                 .build();
     }
+
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/updatePersonalInfo")
+    public ResponseEntity<UserResponseDTO> updateCurrentUser(
+            Authentication auth,
+            @Valid @RequestBody UserRequestDTO dto
+    ) {
+        String email = auth.getName();
+        User user = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        User updatedUser = userService.updateUser(user.getId(), dto);
+        return ResponseEntity.ok(mapToUserDTO(updatedUser));
+    }
+
 }

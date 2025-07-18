@@ -58,6 +58,10 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
                             "/swagger-ui/**",
                             "/v3/api-docs/**"
                     ).permitAll()
+                      .requestMatchers("/api/users/me").authenticated()             // everyone who’s logged in
+                      .requestMatchers("/api/users/updatePersonalInfo").authenticated()        // ✅ ADD THIS
+                      .requestMatchers("/api/users/**").hasRole("ADMIN")                        // ✅ Keep this AFTER more specific matchers
+//                    .requestMatchers("/api/users/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
