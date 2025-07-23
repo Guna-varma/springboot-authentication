@@ -1,54 +1,84 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
   forward-headers-strategy: framework
+  compression:
+    enabled: true
+    min-response-size: 1024
+  error:
+    include-stacktrace: ${INCLUDE_STACKTRACE:never}
 
 spring:
   config:
     import: optional:file:.env.${SPRING_PROFILE:dev}.properties
-#    import: optional:file:.env.properties
 
   profiles:
     active: ${SPRING_PROFILE:dev}
 
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:10MB}
+      max-request-size: ${MAX_REQUEST_SIZE:50MB}
+      file-size-threshold: 2KB
+      location: ${MULTIPART_LOCATION:/tmp/uploads}
+      resolve-lazily: true
+
   data:
     redis:
       host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
-      timeout: 60000
-
-#  data:
-#    redis:
-##      host: localhost # for local run
-#      host: redis # for docker run
-#      port: 6379
-#      timeout: 60000
-
-#
-#  redis:
-#    host: localhost
-#    port: 6379
-#    timeout: 60000
+      timeout: 60000ms
+      ssl:
+        enabled: ${REDIS_SSL}  # Enable SSL for Upstash
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX:8}
+          max-idle: ${REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${REDIS_POOL_MIN_IDLE:2}
+          max-wait: 5000ms
 
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:15}
+      minimum-idle: ${DB_POOL_MIN_IDLE:3}
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 30000
+      leak-detection-threshold: 60000
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:false}
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+        format_sql: false
 
   mail:
-    host: ${MAIL_HOST}
-    port: ${MAIL_PORT}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          timeout: 5000
+          connectiontimeout: 5000
 
   security:
     oauth2:
@@ -58,8 +88,8 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             redirect-uri: ${GOOGLE_REDIRECT_URI}
-#            redirect-uri: https://springboot-auth.up.railway.app/login/oauth2/code/google
             scope:
+              - openid
               - email
               - profile
         provider:
@@ -67,16 +97,298 @@ spring:
             authorization-uri: https://accounts.google.com/o/oauth2/auth
             token-uri: https://oauth2.googleapis.com/token
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 1800000 # 30 minutes in ms
+  expiration: ${JWT_EXPIRATION:1800000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
+  issuer: ${JWT_ISSUER:springboot-auth}
+  audience: ${JWT_AUDIENCE:api-users}
+
+# Application-specific configurations
+app:
+  documents:
+    max-image-size: ${MAX_IMAGE_SIZE:7340032}
+    max-pdf-size: ${MAX_PDF_SIZE:10485760}
+    max-batch-size: ${MAX_BATCH_SIZE:10}
+    allowed-image-types: ${ALLOWED_IMAGE_TYPES:image/png,image/jpeg,image/jpg}
+    allowed-pdf-types: ${ALLOWED_PDF_TYPES:application/pdf}
+    upload-path: ${UPLOAD_PATH:/tmp/uploads}
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:Authorization,Content-Type,X-Requested-With,Accept,Origin,Access-Control-Request-Method,Access-Control-Request-Headers}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+    max-age: ${CORS_MAX_AGE:3600}
 
 logging:
   level:
-    org:
-      springframework:
-        security: DEBUG
-      hibernate:
-        SQL: DEBUG
+    root: ${ROOT_LOG_LEVEL:INFO}
+    com.app.backend: ${LOG_LEVEL:DEBUG}
+    org.springframework.security: ${SECURITY_LOG_LEVEL:DEBUG}
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
+    web: ${WEB_LOG_LEVEL:INFO}
+    org.springframework.transaction: ${TX_LOG_LEVEL:WARN}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+  file:
+    name: ${LOG_FILE:logs/application.log}
+    max-size: ${LOG_MAX_SIZE:10MB}
+    max-history: ${LOG_MAX_HISTORY:3}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'health,info,metrics,prometheus'
+      cors:
+        allowed-origins: ${MANAGEMENT_CORS_ORIGINS:*}
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: ${RAILWAY_METRICS_ENABLED:true}
+
+
+
+#server:
+#  port: ${SERVER_PORT:8080}
+#  forward-headers-strategy: framework
+#  compression:
+#    enabled: true
+#    min-response-size: 1024
+#  error:
+#    include-stacktrace: never
+#
+#spring:
+#  config:
+#    import: optional:file:.env.${SPRING_PROFILE:dev}.properties
+#
+#  profiles:
+#    active: ${SPRING_PROFILE:dev}
+#
+#  servlet:
+#    multipart:
+#      max-file-size: ${MAX_FILE_SIZE:10MB}
+#      max-request-size: ${MAX_REQUEST_SIZE:50MB}
+#      file-size-threshold: 2KB
+#      location: ${MULTIPART_LOCATION:/tmp/uploads}
+#      resolve-lazily: true
+#
+#  data:
+#    redis:
+#      host: ${REDIS_HOST:localhost}
+#      port: ${REDIS_PORT:6379}
+#      password: ${REDIS_PASSWORD:}
+#      timeout: 60000ms
+#      lettuce:
+#        pool:
+#          max-active: 8
+#          max-idle: 8
+#          min-idle: 2
+#          max-wait: 5000ms
+#
+#  datasource:
+#    # Use your original working configuration for dev
+#    url: ${DB_URL}
+#    username: ${DB_USERNAME}
+#    password: ${DB_PASSWORD}
+#    driver-class-name: org.postgresql.Driver
+#    hikari:
+#      maximum-pool-size: 15
+#      minimum-idle: 3
+#      idle-timeout: 300000
+#      max-lifetime: 600000
+#      connection-timeout: 30000
+#      leak-detection-threshold: 60000
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: ${DDL_AUTO:update}  # Use update for dev
+#    show-sql: ${SHOW_SQL:true}     # Show SQL in dev
+#    open-in-view: false
+#    properties:
+#      hibernate:
+#        dialect: org.hibernate.dialect.PostgreSQLDialect
+#        jdbc:
+#          batch_size: 20
+#        order_inserts: true
+#        order_updates: true
+#        batch_versioned_data: true
+#
+#  mail:
+#    host: ${MAIL_HOST:smtp.gmail.com}
+#    port: ${MAIL_PORT:587}
+#    username: ${MAIL_USERNAME}
+#    password: ${MAIL_PASSWORD}
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+#            required: true
+#          timeout: 5000
+#          connectiontimeout: 5000
+#
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          google:
+#            client-id: ${GOOGLE_CLIENT_ID}
+#            client-secret: ${GOOGLE_CLIENT_SECRET}
+#            redirect-uri: ${GOOGLE_REDIRECT_URI}
+#            scope:
+#              - openid
+#              - email
+#              - profile
+#        provider:
+#          google:
+#            authorization-uri: https://accounts.google.com/o/oauth2/auth
+#            token-uri: https://oauth2.googleapis.com/token
+#            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+#            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+#
+#jwt:
+#  secret: ${JWT_SECRET}
+#  expiration: ${JWT_EXPIRATION:1800000}
+#  refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
+#
+## Application-specific configurations
+#app:
+#  documents:
+#    max-image-size: ${MAX_IMAGE_SIZE:7340032}
+#    max-pdf-size: ${MAX_PDF_SIZE:10485760}
+#    max-batch-size: ${MAX_BATCH_SIZE:10}
+#    allowed-image-types: ${ALLOWED_IMAGE_TYPES:image/png,image/jpeg,image/jpg}
+#    allowed-pdf-types: ${ALLOWED_PDF_TYPES:application/pdf}
+#    upload-path: ${UPLOAD_PATH:/tmp/uploads}
+#
+#logging:
+#  level:
+#    com.app.backend: ${LOG_LEVEL:DEBUG}
+#    org.springframework.security: ${SECURITY_LOG_LEVEL:DEBUG}
+#    org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
+#  pattern:
+#    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{36}] - %msg%n"
+#
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: 'health,info,metrics,prometheus'
+#  endpoint:
+#    health:
+#      show-details: always
+
+
+
+
+#server:
+#  port: ${SERVER_PORT:8080}
+#  forward-headers-strategy: framework
+#
+#spring:
+#  config:
+#    import: optional:file:.env.${SPRING_PROFILE:dev}.properties
+##    import: optional:file:.env.properties
+#
+#  profiles:
+#    active: ${SPRING_PROFILE:dev}
+#
+#  servlet:
+#    multipart:
+#      max-file-size: 7MB
+#      max-request-size: 7MB
+#
+#  data:
+#    redis:
+#      host: ${REDIS_HOST}
+#      port: ${REDIS_PORT:6379}
+#      password: ${REDIS_PASSWORD}
+#      timeout: 60000
+#
+##  data:
+##    redis:
+###      host: localhost # for local run
+##      host: redis # for docker run
+##      port: 6379
+##      timeout: 60000
+#
+##
+##  redis:
+##    host: localhost
+##    port: 6379
+##    timeout: 60000
+#
+#  datasource:
+#    url: ${DB_URL}
+#    username: ${DB_USERNAME}
+#    password: ${DB_PASSWORD}
+#    driver-class-name: org.postgresql.Driver
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    show-sql: true
+#
+#  mail:
+#    host: ${MAIL_HOST}
+#    port: ${MAIL_PORT}
+#    username: ${MAIL_USERNAME}
+#    password: ${MAIL_PASSWORD}
+#    properties:
+#      mail.smtp.auth: true
+#      mail.smtp.starttls.enable: true
+#
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          google:
+#            client-id: ${GOOGLE_CLIENT_ID}
+#            client-secret: ${GOOGLE_CLIENT_SECRET}
+#            redirect-uri: ${GOOGLE_REDIRECT_URI}
+##            redirect-uri: https://springboot-auth.up.railway.app/login/oauth2/code/google
+#            scope:
+#              - email
+#              - profile
+#        provider:
+#          google:
+#            authorization-uri: https://accounts.google.com/o/oauth2/auth
+#            token-uri: https://oauth2.googleapis.com/token
+#            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+#
+#jwt:
+#  secret: ${JWT_SECRET}
+#  expiration: 1800000 # 30 minutes in ms
+#
+#logging:
+#  level:
+#    org:
+#      springframework:
+#        security: DEBUG
+#      hibernate:
+#        SQL: DEBUG
+#
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: '*'
+#  endpoint:
+#    health:
+#      show-details: always
+#  metrics:
+#    export:
+#      prometheus:
+#        enabled: true

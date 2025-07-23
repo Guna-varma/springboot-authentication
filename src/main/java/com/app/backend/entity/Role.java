@@ -2,6 +2,7 @@ package com.app.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
 
 @Entity
 @Data
@@ -11,7 +12,7 @@ import lombok.*;
 @Getter
 @Setter
 @Table(name = "roles")
-public class Role {
+public class Role implements GrantedAuthority{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,6 +21,10 @@ public class Role {
     @Column(unique = true, nullable = false)
     private String name; // e.g., ADMIN, TUTOR, STAFF, STUDENT
 
+    @Override
+    public String getAuthority() {
+        return "ROLE_" + name; // Important for Spring Security to recognize roles
+    }
 
     public Long getId() {
         return id;

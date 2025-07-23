@@ -17,7 +17,6 @@ import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationF
 import org.springframework.security.web.*;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 
 @Configuration
 @EnableMethodSecurity
@@ -29,24 +28,6 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
-//@Bean
-//public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-//    http
-//            .csrf(csrf -> csrf.disable())
-//            .authorizeHttpRequests(authorize -> authorize
-//                    .requestMatchers("/api/auth/**", "/api/otp/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-//                    .anyRequest().authenticated()
-//            )
-//            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//            .oauth2Login(oauth2 -> oauth2
-//                    .userInfoEndpoint(userInfo -> userInfo
-//                            .userService(customOAuth2UserService)
-//                    )
-//                    .successHandler(oAuth2SuccessHandler)
-//            );
-//
-//    return http.build();
-//}
 @Bean
 public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
@@ -56,8 +37,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
                             "/api/auth/**",
                             "/api/otp/**",
                             "/swagger-ui/**",
-                            "/v3/api-docs/**"
+                            "/v3/api-docs/**",
+                            "/actuator/**",
+                            "/api/document/**"
                     ).permitAll()
+                      .requestMatchers("/actuator/**").hasRole("ADMIN")
                       .requestMatchers("/api/users/me").authenticated()             // everyone who’s logged in
                       .requestMatchers("/api/users/updatePersonalInfo").authenticated()        // ✅ ADD THIS
                       .requestMatchers("/api/users/**").hasRole("ADMIN")                        // ✅ Keep this AFTER more specific matchers
@@ -91,6 +75,4 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
                 .passwordEncoder(passwordEncoder());
         return authBuilder.build();
     }
-
 }
-
