@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import javax.crypto.SecretKey;
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 import io.jsonwebtoken.security.Keys;
 import javax.crypto.SecretKey;
@@ -25,20 +26,50 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration}")
+    @Value("${jwt.expiration:900000}") // 15 minutes default
     private long expirationTime;
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static final long EXPIRATION_TIME = 1000 * 60 * 30; // 30 minutes
+//    public String generateToken(String username) {
+//        return Jwts.builder()
+//                .setSubject(username)
+//                .setIssuedAt(new Date())
+//                .setExpiration(new Date(System.currentTimeMillis() + expirationTime)) // Use config value!
+//                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+//                .compact();
+//    }
 
+    // Keep your existing methods...
     public String generateToken(String username) {
+        return generateTokenWithId(username); // Use the enhanced version
+    }
+
+    // Add method to get token ID for blacklisting
+    public String getTokenId(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
+//    public String generateTokenWithId(String username) {
+//        String tokenId = UUID.randomUUID().toString();
+//        return Jwts.builder()
+//                .setId(tokenId) // Add unique ID for blacklisting
+//                .setSubject(username)
+//                .setIssuedAt(new Date())
+//                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
+//                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+//                .compact();
+//    }
+
+    public String generateTokenWithId(String username) {
+        String tokenId = UUID.randomUUID().toString();
         return Jwts.builder()
+                .setId(tokenId) // Unique ID for blacklisting
                 .setSubject(username)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }

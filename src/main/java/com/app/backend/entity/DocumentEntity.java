@@ -1,7 +1,11 @@
 package com.app.backend.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,14 +31,10 @@ public class DocumentEntity {
     private String contentType;
 
     @Column(nullable = false)
-    private Long size; // in bytes
+    private Long size;
 
     @Column(nullable = false)
     private Long uploadedByUserId;
-
-//    // Audit fields for production tracking
-//    @Column(name = "created_at", nullable = false, updatable = false)
-//    private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
@@ -43,21 +43,20 @@ public class DocumentEntity {
     @Column(nullable = false)
     private DocumentType documentType;
 
+    // ✅ FIXED: Add lazy loading to prevent automatic loading of binary data
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     @Column(nullable = false)
     private byte[] data;
 
-    // Optional: Add checksum for integrity verification
     @Column(length = 64)
     private String sha256Checksum;
 
-    // Add with default value to handle existing records
-    @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "updated_at", nullable = false,
-            columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
@@ -74,42 +73,29 @@ public class DocumentEntity {
         if (uploadedAt == null) {
             uploadedAt = now;
         }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
     }
 
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    // Constructor for metadata-only queries (without binary data)
+    public DocumentEntity(Long id, String filename, String contentType, Long size,
+                          Long uploadedByUserId, LocalDateTime uploadedAt,
+                          DocumentType documentType, String sha256Checksum) {
+        this.id = id;
+        this.filename = filename;
+        this.contentType = contentType;
+        this.size = size;
+        this.uploadedByUserId = uploadedByUserId;
+        this.uploadedAt = uploadedAt;
+        this.documentType = documentType;
+        this.sha256Checksum = sha256Checksum;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
 }
-
-
-
-//package com.app.backend.entity;
-//
-//import jakarta.persistence.*;
-//import lombok.*;
-//import java.time.LocalDateTime;
-//
-//@Entity
-//@Table(name = "images")
-//@Data
-//@NoArgsConstructor
-//@AllArgsConstructor
-//@Builder
-//public class ImageEntity {
-//
-//    @Id
-//    @GeneratedValue(strategy = GenerationType.IDENTITY)
-//    private Long id;
-//
-//    private String filename;
-//
-//    @Column(length = 100)
-//    private String contentType;
-//
-//    private Long size; // in bytes
-//
-//    private Long uploadedByUserId;
-//
-//    private LocalDateTime uploadedAt;
-//
-//    @Lob
-//    @Column(nullable = false)
-//    private byte[] data;
-//}

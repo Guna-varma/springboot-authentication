@@ -27,15 +27,16 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
-      timeout: 60000ms
+      timeout: 3000ms
       ssl:
         enabled: ${REDIS_SSL}  # Enable SSL for Upstash
       lettuce:
         pool:
-          max-active: ${REDIS_POOL_MAX:8}
+          max-active: ${REDIS_POOL_MAX:20}
           max-idle: ${REDIS_POOL_MAX_IDLE:8}
           min-idle: ${REDIS_POOL_MIN_IDLE:2}
-          max-wait: 5000ms
+          max-wait: 3000ms
+
 
   datasource:
     url: ${DB_URL}
@@ -43,6 +44,7 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
+      auto-commit: false
       maximum-pool-size: ${DB_POOL_SIZE:15}
       minimum-idle: ${DB_POOL_MIN_IDLE:3}
       idle-timeout: 300000
@@ -60,6 +62,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
           batch_size: 20
+          lob:
+            non_contextual_creation: true
         order_inserts: true
         order_updates: true
         batch_versioned_data: true
@@ -101,7 +105,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: ${JWT_EXPIRATION:1800000}
+  expiration: ${JWT_EXPIRATION:900000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
   issuer: ${JWT_ISSUER:springboot-auth}
   audience: ${JWT_AUDIENCE:api-users}
@@ -123,11 +127,20 @@ app:
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
     max-age: ${CORS_MAX_AGE:3600}
 
+  security:
+    token:
+      cleanup-interval: ${TOKEN_CLEANUP_INTERVAL:PT1H}  # Clean up expired tokens every hour
+      max-user-tokens: ${MAX_USER_TOKENS:5}  # Maximum refresh tokens per user
+
 logging:
   level:
     root: ${ROOT_LOG_LEVEL:INFO}
     com.app.backend: ${LOG_LEVEL:DEBUG}
+    com.app.backend.service: ${SERVICE_LOG_LEVEL:DEBUG}  # ✅ ADDED: For token operations
+    com.app.backend.redisToken: ${REDIS_TOKEN_LOG_LEVEL:DEBUG}  # ✅ ADDED: For Redis token operations
     org.springframework.security: ${SECURITY_LOG_LEVEL:DEBUG}
+    org.springframework.security.oauth2: ${OAUTH2_LOG_LEVEL:INFO}  # ✅ ADDED: OAuth2 specific logging
+    org.springframework.data.redis: ${REDIS_LOG_LEVEL:INFO}  # ✅ ADDED: Redis operations logging
     org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
     web: ${WEB_LOG_LEVEL:INFO}
     org.springframework.transaction: ${TX_LOG_LEVEL:WARN}
@@ -149,13 +162,22 @@ management:
   endpoint:
     health:
       show-details: always
+      cache:
+        time-to-live: 10s
   health:
     redis:
+      enabled: true
+    db:
       enabled: true
   metrics:
     export:
       prometheus:
         enabled: ${RAILWAY_METRICS_ENABLED:true}
+
+        # ✅ ADDED: Custom metrics
+    tags:
+      application: ${spring.application.name:springboot-auth}
+      environment: ${SPRING_PROFILE:dev}
 
 
 

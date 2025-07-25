@@ -1,5 +1,10 @@
 package com.app.backend.config;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfigurationSource;
+
+
 import  com.app.backend.filter.JwtFilter;
 import com.app.backend.service.CustomOAuth2UserService;
 import com.app.backend.service.CustomUserDetailsService;
@@ -32,6 +37,7 @@ public class SecurityConfig {
 public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
             .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(authorize -> authorize
                     .requestMatchers(
                             "/api/auth/**",
@@ -39,7 +45,9 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/actuator/**",
-                            "/api/document/**"
+                            "/api/document/**",
+                            "/api/document/public/**",
+                            "/api/document/practiceImages"
                     ).permitAll()
                       .requestMatchers("/actuator/**").hasRole("ADMIN")
                       .requestMatchers("/api/users/me").authenticated()             // everyone who’s logged in
@@ -61,6 +69,21 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
 
     return http.build();
 }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowCredentials(true);
+        configuration.addAllowedOriginPattern("http://localhost:3000");
+        configuration.addAllowedOriginPattern("https://*.vercel.app");
+        configuration.addAllowedHeader("*");
+        configuration.addAllowedMethod("*");
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {

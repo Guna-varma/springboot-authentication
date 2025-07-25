@@ -7,13 +7,16 @@ import com.app.backend.repository.*;
 import com.app.backend.util.EmailUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -50,7 +53,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        String accessToken = jwtService.generateToken(user.getEmail());
+        String accessToken = jwtService.generateTokenWithId(user.getEmail());
         String refreshToken = redisRefreshTokenService.createRefreshToken(user.getEmail());
 
         return AuthResponse.builder()
@@ -72,7 +75,7 @@ public class AuthService {
             throw new RuntimeException("Invalid email or password");
         }
 
-        String accessToken = jwtService.generateToken(user.getEmail());
+        String accessToken = jwtService.generateTokenWithId(user.getEmail());
         String refreshToken = redisRefreshTokenService.createRefreshToken(user.getEmail());
 
         return AuthResponse.builder()
@@ -125,11 +128,33 @@ public class AuthService {
         otpTokenRepository.deleteByEmail(request.getEmail());
     }
 
-    public void signout(String token) {
-        String email = jwtService.extractUsername(token);
-        // Optional: implement this to remove all user tokens
-        // redisRefreshTokenService.invalidateAllTokensForUser(email);
-        System.out.println("User signed out: " + email);
+    public void signout(String jwtToken) {
+        try {
+            String email = jwtService.extractUsername(jwtToken);
+            String tokenId = jwtService.getTokenId(jwtToken);
+            Date expiration = jwtService.extractExpiration(jwtToken);
+
+            // Calculate remaining TTL
+            long remainingTtl = expiration.getTime() - System.currentTimeMillis();
+
+            // Blacklist the JWT token
+            if (tokenId != null && remainingTtl > 0) {
+                redisRefreshTokenService.blacklistJwtToken(tokenId, remainingTtl);
+            }
+
+            // Invalidate all refresh tokens for this user
+            redisRefreshTokenService.invalidateAllUserTokens(email);
+
+            log.info("User {} signed out successfully", email);
+        } catch (Exception e) {
+            log.error("Error during signout", e);
+            throw new RuntimeException("Signout failed");
+        }
+    }
+
+    public void signoutFromAllDevices(String email) {
+        redisRefreshTokenService.invalidateAllUserTokens(email);
+        log.info("User {} signed out from all devices", email);
     }
 
     private UserResponseDTO mapToUserDTO(User user) {
