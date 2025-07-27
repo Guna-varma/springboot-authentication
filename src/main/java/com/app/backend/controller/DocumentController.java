@@ -167,6 +167,7 @@ public class DocumentController {
 
     @GetMapping("/public/{id}/view")
     @Transactional(readOnly = true)
+    @PreAuthorize("permitAll()")
     public ResponseEntity<?> viewDocumentPublic(@PathVariable @NotNull @Min(1) Long id, HttpServletRequest request) {
 
         try {
@@ -215,8 +216,9 @@ public class DocumentController {
         }
     }
 
-//    @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+
     @GetMapping("/practiceImages")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<ApiResponseDTO<List<DocumentMetadataDTO>>> getPracticeImages(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
@@ -264,8 +266,6 @@ public class DocumentController {
                     ));
         }
     }
-
-
 
 
     // Health check endpoint for public API

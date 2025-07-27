@@ -112,6 +112,9 @@ jwt:
 
 # Application-specific configurations
 app:
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
+
   documents:
     max-image-size: ${MAX_IMAGE_SIZE:7340032}
     max-pdf-size: ${MAX_PDF_SIZE:10485760}

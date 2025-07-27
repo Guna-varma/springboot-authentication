@@ -825,29 +825,8 @@ public class DocumentService {
 
         DocumentEntity document = documentOpt.get();
 
-        // ✅ FIXED: Allow all documents for public access (remove the restriction)
-        // Comment out or remove the restrictive check:
-        // if (!isDocumentPubliclyAccessible(document)) {
-        //     throw new GlobalExceptionHandler.DocumentNotFoundException("Document not available for public access");
-        // }
-
         return document;
     }
-
-//    // ✅ UPDATE: Make this method return true for all images
-//    private boolean isDocumentPubliclyAccessible(DocumentEntity document) {
-//        // Allow all images for public viewing
-//        if (document.getDocumentType() == DocumentEntity.DocumentType.IMAGE) {
-//            return true;
-//        }
-//
-//        // You can add specific logic for PDFs if needed
-//        if (document.getDocumentType() == DocumentEntity.DocumentType.PDF) {
-//            return true; // or add specific conditions
-//        }
-//
-//        return true; // Allow all documents for now
-//    }
 
 
     private boolean isValidImageType(DocumentEntity document) {
@@ -884,24 +863,6 @@ public class DocumentService {
                 ))
                 .collect(Collectors.toList());
     }
-
-//    // Add this to DocumentService.java
-//    public List<DocumentEntity> getPracticeImages(int page, int size) {
-//        try {
-//            return documentRepository.findAll().stream()
-//                    .filter(this::isDocumentPubliclyAccessible)
-//                    .filter(doc -> doc.getDocumentType() == DocumentEntity.DocumentType.IMAGE)
-//                    .filter(doc -> doc.getFilename() != null &&
-//                            (doc.getFilename().toLowerCase().contains("practice") ||
-//                                    doc.getFilename().toLowerCase().contains("spiritual")))
-//                    .skip((long) page * size)
-//                    .limit(size)
-//                    .collect(Collectors.toList());
-//        } catch (Exception e) {
-//            log.error("Error retrieving practice images", e);
-//            throw new RuntimeException("Failed to retrieve practice images", e);
-//        }
-//    }
 
     public List<DocumentEntity> getPracticeImages(int page, int size) {
         List<DocumentEntity> allDocs = documentRepository.findAll();
