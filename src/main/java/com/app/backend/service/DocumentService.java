@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tika.Tika;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -726,28 +728,6 @@ public class DocumentService {
         }
     }
 
-//    @Transactional(readOnly = true)
-//    public DocumentEntity getPublicDocumentById(Long id) {
-//        // First check if the document ID is in our public practice images list
-//        if (!PUBLIC_PRACTICE_IMAGE_IDS.contains(id)) {
-//            throw new GlobalExceptionHandler.DocumentNotFoundException(
-//                    "Public document not found with ID: " + id);
-//        }
-//
-//        DocumentEntity document = documentRepository.findByIdWithData(id)
-//                .orElseThrow(() -> new GlobalExceptionHandler.DocumentNotFoundException(
-//                        "Document not found with ID: " + id));
-//
-//        // Additional validation for public access
-//        if (!isDocumentPubliclyAccessible(document)) {
-//            throw new GlobalExceptionHandler.DocumentNotFoundException(
-//                    "Document is not publicly accessible with ID: " + id);
-//        }
-//
-//        log.info("Public document accessed - ID: {}, Filename: {}", id, document.getFilename());
-//        return document;
-//    }
-
     @Transactional(readOnly = true)
     public DocumentEntity getPublicDocumentById(Long id) {
         // ✅ Dynamic approach - fetch document first, then validate accessibility
@@ -865,31 +845,82 @@ public class DocumentService {
     }
 
     public List<DocumentEntity> getPracticeImages(int page, int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+
+            List<DocumentEntity> practiceImages = documentRepository.findPracticeImagesPaginated(
+                    "practice",   // Search for 'practice' in filename
+                    "spiritual",  // Search for 'spiritual' in filename
+                    pageable
+            );
+
+            log.info("Practice images found via database query: {} images for page: {}, size: {}",
+                    practiceImages.size(), page, size);
+
+            return practiceImages;
+
+        } catch (Exception ex) {
+            log.error("Database query failed, falling back to in-memory filtering", ex);
+
+            // ✅ Fallback to your original logic if database query fails
+            return getPracticeImagesWithInMemoryFiltering(page, size);
+        }
+    }
+
+    // Keep your original method as fallback
+    private List<DocumentEntity> getPracticeImagesWithInMemoryFiltering(int page, int size) {
         List<DocumentEntity> allDocs = documentRepository.findAll();
-        log.info("Total documents in DB: {}", allDocs.size());
+        log.info("Fallback: Total documents in DB: {}", allDocs.size());
 
         List<DocumentEntity> publicDocs = allDocs.stream()
                 .filter(this::isDocumentPubliclyAccessible)
                 .collect(Collectors.toList());
-        log.info("Public accessible documents: {}", publicDocs.size());
+        log.info("Fallback: Public accessible documents: {}", publicDocs.size());
 
         List<DocumentEntity> imageDocs = publicDocs.stream()
                 .filter(doc -> doc.getDocumentType() == DocumentEntity.DocumentType.IMAGE)
                 .collect(Collectors.toList());
-        log.info("Public image documents: {}", imageDocs.size());
+        log.info("Fallback: Public image documents: {}", imageDocs.size());
 
         List<DocumentEntity> practiceImages = imageDocs.stream()
                 .filter(doc -> doc.getFilename() != null &&
                         (doc.getFilename().toLowerCase().contains("practice") ||
                                 doc.getFilename().toLowerCase().contains("spiritual")))
                 .collect(Collectors.toList());
-        log.info("Practice images found: {}", practiceImages.size());
+        log.info("Fallback: Practice images found: {}", practiceImages.size());
 
         return practiceImages.stream()
                 .skip((long) page * size)
                 .limit(size)
                 .collect(Collectors.toList());
     }
+
+//    public List<DocumentEntity> getPracticeImages(int page, int size) {
+//        List<DocumentEntity> allDocs = documentRepository.findAll();
+//        log.info("Total documents in DB: {}", allDocs.size());
+//
+//        List<DocumentEntity> publicDocs = allDocs.stream()
+//                .filter(this::isDocumentPubliclyAccessible)
+//                .collect(Collectors.toList());
+//        log.info("Public accessible documents: {}", publicDocs.size());
+//
+//        List<DocumentEntity> imageDocs = publicDocs.stream()
+//                .filter(doc -> doc.getDocumentType() == DocumentEntity.DocumentType.IMAGE)
+//                .collect(Collectors.toList());
+//        log.info("Public image documents: {}", imageDocs.size());
+//
+//        List<DocumentEntity> practiceImages = imageDocs.stream()
+//                .filter(doc -> doc.getFilename() != null &&
+//                        (doc.getFilename().toLowerCase().contains("practice") ||
+//                                doc.getFilename().toLowerCase().contains("spiritual")))
+//                .collect(Collectors.toList());
+//        log.info("Practice images found: {}", practiceImages.size());
+//
+//        return practiceImages.stream()
+//                .skip((long) page * size)
+//                .limit(size)
+//                .collect(Collectors.toList());
+//    }
 
 
     @Transactional(readOnly = true)
@@ -937,7 +968,5 @@ public class DocumentService {
 
         return isValidImage && hasPracticeFilename;
     }
-
-
 
 }

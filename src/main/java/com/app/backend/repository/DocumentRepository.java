@@ -93,4 +93,15 @@ public interface DocumentRepository extends JpaRepository<DocumentEntity, Long> 
     @Query("SELECT COUNT(d) > 0 FROM DocumentEntity d WHERE d.id = :id AND d.uploadedByUserId = :userId")
     boolean existsByIdAndUploadedByUserId(@Param("id") Long id, @Param("userId") Long userId);
 
+    // In DocumentRepository
+    @Query("SELECT d FROM DocumentEntity d WHERE " +
+            "d.documentType = 'IMAGE' AND " +
+            "(LOWER(d.filename) LIKE %:keyword1% OR LOWER(d.filename) LIKE %:keyword2%) " +
+            "ORDER BY d.uploadedAt DESC")
+    List<DocumentEntity> findPracticeImagesPaginated(
+            @Param("keyword1") String keyword1,
+            @Param("keyword2") String keyword2,
+            Pageable pageable
+    );
+
 }

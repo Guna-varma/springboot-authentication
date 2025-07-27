@@ -20,20 +20,26 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api/document")
 @RequiredArgsConstructor
 @Slf4j
+//@CrossOrigin(
+//        origins = {"http://localhost:3000", "http://127.0.0.1:3000"},
+//        allowedHeaders = "*",
+//        methods = {RequestMethod.GET, RequestMethod.OPTIONS},
+//        allowCredentials = "false"
+//)
 public class DocumentController {
 
     private final DocumentService documentService;
@@ -41,82 +47,6 @@ public class DocumentController {
     private final DocumentRepository documentRepository;
 
     private final RateLimitService rateLimitService;
-
-    // SINGLE FILE UPLOAD
-    @PreAuthorize("hasAnyRole('ADMIN','HEALTHCARE_PROVIDER','TUTOR')")
-    @PostMapping("/upload")
-    public ResponseEntity<ApiResponseDTO<DocumentMetadataDTO>> uploadSingleDocument(
-            @RequestParam("file") @NotNull MultipartFile file,
-            Authentication authentication
-    ) {
-        try {
-            Long userId = ((CustomUserDetails) authentication.getPrincipal()).getId();
-            DocumentEntity saved = documentService.saveDocument(file, userId);
-
-            DocumentMetadataDTO metadata = new DocumentMetadataDTO(
-                    saved.getId(), saved.getFilename(), saved.getContentType(),
-                    saved.getSize(), saved.getUploadedByUserId(), saved.getUploadedAt(),
-                    saved.getDocumentType(), saved.getSha256Checksum()
-            );
-
-            return ResponseEntity.ok(new ApiResponseDTO<>(
-                    true,
-                    "Document uploaded successfully",
-                    metadata,
-                    getCurrentTimestamp()
-            ));
-
-        } catch (IllegalArgumentException ex) {
-            log.warn("Invalid upload request: {}", ex.getMessage());
-            return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
-                    false, ex.getMessage(), null, getCurrentTimestamp()
-            ));
-        } catch (Exception ex) {
-            log.error("Upload failed for user: {}",
-                    ((CustomUserDetails) authentication.getPrincipal()).getId(), ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(
-                            false, "Upload failed: " + ex.getMessage(), null, getCurrentTimestamp()
-                    ));
-        }
-    }
-
-    // MULTIPLE FILES UPLOAD
-    @PreAuthorize("hasAnyRole('ADMIN','HEALTHCARE_PROVIDER','TUTOR')")
-    @PostMapping("/upload/multiple")
-    public ResponseEntity<ApiResponseDTO<MultipleUploadResponseDTO>> uploadMultipleDocuments(
-            @RequestParam("files") @NotNull List<MultipartFile> files,
-            Authentication authentication
-    ) {
-        try {
-            Long userId = ((CustomUserDetails) authentication.getPrincipal()).getId();
-            MultipleUploadResponseDTO result = documentService.saveMultipleDocuments(files, userId);
-
-            boolean allSuccessful = result.getFailedUploads().isEmpty();
-            HttpStatus status = allSuccessful ? HttpStatus.OK : HttpStatus.MULTI_STATUS;
-
-            return ResponseEntity.status(status).body(new ApiResponseDTO<>(
-                    allSuccessful,
-                    result.getSummary(),
-                    result,
-                    getCurrentTimestamp()
-            ));
-
-        } catch (IllegalArgumentException ex) {
-            log.warn("Invalid multiple upload request: {}", ex.getMessage());
-            return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
-                    false, ex.getMessage(), null, getCurrentTimestamp()
-            ));
-        } catch (Exception ex) {
-            log.error("Multiple upload failed for user: {}",
-                    ((CustomUserDetails) authentication.getPrincipal()).getId(), ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(
-                            false, "Multiple upload failed: " + ex.getMessage(), null, getCurrentTimestamp()
-                    ));
-        }
-    }
-
 
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/{id}/view")
@@ -163,119 +93,6 @@ public class DocumentController {
                     .body(new ApiResponseDTO<>(false, "Failed to load document", null, getCurrentTimestamp()));
         }
     }
-
-
-    @GetMapping("/public/{id}/view")
-    @Transactional(readOnly = true)
-    @PreAuthorize("permitAll()")
-    public ResponseEntity<?> viewDocumentPublic(@PathVariable @NotNull @Min(1) Long id, HttpServletRequest request) {
-
-        try {
-            // Rate limiting check (production security)
-            String clientIp = WebUtils.getClientIpAddress(request);
-            if (!rateLimitService.isAllowed(clientIp)) {
-                log.warn("Rate limit exceeded for IP: {} accessing document: {}", clientIp, id);
-                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(new ApiResponseDTO<>(false, "Rate limit exceeded", null, getCurrentTimestamp()));
-            }
-
-            DocumentEntity document = documentService.getDocumentByIdPublic(id);
-
-            if (document.getData() == null || document.getData().length == 0) {
-                log.warn("Document data is empty for ID: {}", id);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(new ApiResponseDTO<>(false, "Document not found", null, getCurrentTimestamp()));
-            }
-
-            ByteArrayResource resource = new ByteArrayResource(document.getData());
-            String sanitizedFilename = sanitizeFilename(document.getFilename());
-
-            // Log public access activity (important for monitoring)
-            log.info("Public document viewed - ID: {}, Filename: {}, IP: {}, UserAgent: {}",
-                    id, sanitizedFilename, clientIp, request.getHeader("User-Agent"));
-
-            return ResponseEntity.ok()
-                    .contentType(parseContentType(document.getContentType()))
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("inline; filename=\"%s\"", sanitizedFilename))
-                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
-                    .header("X-Content-Type-Options", "nosniff")
-                    .header("X-Frame-Options", "SAMEORIGIN")
-                    .header("X-RateLimit-Remaining", String.valueOf(rateLimitService.getRemainingRequests(clientIp)))
-                    .contentLength(document.getSize())
-                    .body(resource);
-
-        } catch (GlobalExceptionHandler.DocumentNotFoundException ex) {
-            log.warn("Document not found for public access: {}", id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponseDTO<>(false, "Document not found", null, getCurrentTimestamp()));
-        } catch (Exception ex) {
-            log.error("Failed to serve public document: {}", id, ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(false, "Failed to load document", null, getCurrentTimestamp()));
-        }
-    }
-
-
-    @GetMapping("/practiceImages")
-    @PreAuthorize("permitAll()")
-    public ResponseEntity<ApiResponseDTO<List<DocumentMetadataDTO>>> getPracticeImages(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size,
-            HttpServletRequest request
-    ) {
-        try {
-            // Rate limiting for public endpoint
-            String clientIp = WebUtils.getClientIpAddress(request);
-            if (!rateLimitService.isAllowed(clientIp)) {
-                log.warn("Rate limit exceeded for practice images request from IP: {}", clientIp);
-                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(new ApiResponseDTO<>(false, "Rate limit exceeded", null, getCurrentTimestamp()));
-            }
-
-            // Get practice images through service
-            List<DocumentEntity> practiceImages = documentService.getPracticeImages(page, size);
-
-            List<DocumentMetadataDTO> practiceImageDTOs = practiceImages.stream()
-                    .map(this::convertToMetadataDTO)
-                    .collect(Collectors.toList());
-
-            log.info("Practice images retrieved: {} images from IP: {}",
-                    practiceImageDTOs.size(), clientIp);
-
-            return ResponseEntity.ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("X-Content-Type-Options", "nosniff")
-                    .header("X-Frame-Options", "SAMEORIGIN")
-                    .header("X-RateLimit-Remaining", String.valueOf(rateLimitService.getRemainingRequests(clientIp)))
-                    .body(new ApiResponseDTO<>(
-                            true,
-                            String.format("Retrieved %d practice images", practiceImageDTOs.size()),
-                            practiceImageDTOs,
-                            getCurrentTimestamp()
-                    ));
-
-        } catch (Exception ex) {
-            log.error("Failed to retrieve practice images", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(
-                            false,
-                            "Failed to retrieve practice images: " + ex.getMessage(),
-                            null,
-                            getCurrentTimestamp()
-                    ));
-        }
-    }
-
-
-    // Health check endpoint for public API
-    @GetMapping("/public/health")
-    public ResponseEntity<ApiResponseDTO<String>> publicHealthCheck() {
-        return ResponseEntity.ok()
-                .header("Access-Control-Allow-Origin", "*")
-                .body(new ApiResponseDTO<>(true, "Public API is healthy", "OK", getCurrentTimestamp()));
-    }
-
 
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/metadata")
@@ -324,72 +141,6 @@ public class DocumentController {
                     ));
         }
     }
-
-
-    // ✅ ADD THIS NEW PUBLIC ENDPOINT
-    @GetMapping("/public/metadata")
-    public ResponseEntity<ApiResponseDTO<List<DocumentMetadataDTO>>> getPublicDocumentsMetadata(
-            @RequestParam(required = false) String type,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size,
-            HttpServletRequest request
-    ) {
-        try {
-            // Rate limiting for public endpoint
-            String clientIp = WebUtils.getClientIpAddress(request);
-            if (!rateLimitService.isAllowed(clientIp)) {
-                log.warn("Rate limit exceeded for public metadata request from IP: {}", clientIp);
-                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(new ApiResponseDTO<>(false, "Rate limit exceeded", null, getCurrentTimestamp()));
-            }
-
-            List<DocumentMetadataDTO> documents;
-
-            if (type != null && !type.trim().isEmpty()) {
-                try {
-                    DocumentEntity.DocumentType documentType = DocumentEntity.DocumentType.valueOf(type.toUpperCase());
-                    List<DocumentEntity> entities = documentService.getPublicDocumentsByType(documentType, page, size);
-                    documents = entities.stream()
-                            .map(this::convertToMetadataDTO)
-                            .toList();
-
-                    log.info("Public API: Retrieved {} documents of type: {} from IP: {}",
-                            documents.size(), documentType, clientIp);
-
-                } catch (IllegalArgumentException ex) {
-                    log.warn("Invalid document type in public request: {}", type);
-                    return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
-                            false, "Invalid document type: " + type + ". Valid types are: IMAGE, PDF",
-                            null, getCurrentTimestamp()
-                    ));
-                }
-            } else {
-                documents = documentService.getPublicDocumentsMetadata(page, size);
-            }
-
-            return ResponseEntity.ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("X-RateLimit-Remaining", String.valueOf(rateLimitService.getRemainingRequests(clientIp)))
-                    .body(new ApiResponseDTO<>(
-                            true,
-                            String.format("Retrieved %d public documents", documents.size()),
-                            documents,
-                            getCurrentTimestamp()
-                    ));
-
-        } catch (Exception ex) {
-            log.error("Failed to retrieve public documents metadata with type: {}", type, ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(
-                            false,
-                            "Failed to retrieve documents: " + ex.getMessage(),
-                            null,
-                            getCurrentTimestamp()
-                    ));
-        }
-    }
-
-
 
     @GetMapping("/debug/count")
     @PreAuthorize("isAuthenticated()")
@@ -469,85 +220,6 @@ public class DocumentController {
         }
     }
 
-
-    // DELETE SINGLE DOCUMENT
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponseDTO<Void>> deleteDocument(@PathVariable @NotNull Long id) {
-        try {
-            documentService.deleteDocumentById(id);
-            return ResponseEntity.ok(new ApiResponseDTO<>(
-                    true, "Document deleted successfully", null, getCurrentTimestamp()
-            ));
-
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new ApiResponseDTO<>(false, ex.getMessage(), null, getCurrentTimestamp()));
-        } catch (Exception ex) {
-            log.error("Failed to delete document: {}", id, ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(false, "Failed to delete document", null, getCurrentTimestamp()));
-        }
-    }
-
-    // DELETE MULTIPLE DOCUMENTS
-    @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping("/multiple")
-    public ResponseEntity<ApiResponseDTO<PartialDeleteResponseDTO>> deleteMultipleDocuments(
-            @RequestBody @NotNull List<Long> documentIds
-    ) {
-        try {
-            PartialDeleteResponseDTO result = documentService.deleteMultipleDocuments(documentIds);
-
-            // Determine response status and success flag
-            boolean isSuccess = result.getSuccessfullyDeleted() > 0;
-            HttpStatus status = result.isAllDeleted() ? HttpStatus.OK :
-                    result.isPartialDeletion() ? HttpStatus.MULTI_STATUS :
-                            HttpStatus.NOT_FOUND;
-
-            return ResponseEntity.status(status).body(new ApiResponseDTO<>(
-                    isSuccess,
-                    result.getSummary(),
-                    result,
-                    getCurrentTimestamp()
-            ));
-
-        } catch (IllegalArgumentException ex) {
-            log.warn("Invalid delete request: {}", ex.getMessage());
-            return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
-                    false, ex.getMessage(), null, getCurrentTimestamp()
-            ));
-        } catch (Exception ex) {
-            log.error("Failed to delete multiple documents: {}", documentIds, ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponseDTO<>(
-                            false,
-                            "Failed to delete documents: " + ex.getMessage(),
-                            null,
-                            getCurrentTimestamp()
-                    ));
-        }
-    }
-
-    // Helper methods
-    private String getCurrentTimestamp() {
-        return LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-    }
-
-    private DocumentMetadataDTO convertToMetadataDTO(DocumentEntity document) {
-        return new DocumentMetadataDTO(
-                document.getId(),
-                document.getFilename(),
-                document.getContentType(),
-                document.getSize(),
-                document.getUploadedByUserId(),
-                document.getUploadedAt(),
-                document.getDocumentType(),
-                document.getSha256Checksum()
-        );
-    }
-
-
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/{id}/download")
     @Transactional(readOnly = true)  // ✅ THIS IS THE KEY FIX for PostgreSQL LOB error
@@ -611,31 +283,139 @@ public class DocumentController {
         }
     }
 
-    // Helper methods for the controller
-    private String sanitizeFilename(String filename) {
-        if (filename == null) return "document";
-        return filename.replaceAll("[^a-zA-Z0-9._-]", "_")
-                .replaceAll("_{2,}", "_")
-                .trim();
-    }
-
-    private MediaType parseContentType(String contentType) {
+    // SINGLE FILE UPLOAD
+    @PreAuthorize("hasAnyRole('ADMIN','HEALTHCARE_PROVIDER','TUTOR')")
+    @PostMapping("/upload")
+    public ResponseEntity<ApiResponseDTO<DocumentMetadataDTO>> uploadSingleDocument(
+            @RequestParam("file") @NotNull MultipartFile file,
+            Authentication authentication
+    ) {
         try {
-            return MediaType.parseMediaType(contentType);
-        } catch (Exception e) {
-            log.warn("Invalid content type: {}, using default", contentType);
-            return MediaType.APPLICATION_OCTET_STREAM;
+            Long userId = ((CustomUserDetails) authentication.getPrincipal()).getId();
+            DocumentEntity saved = documentService.saveDocument(file, userId);
+
+            DocumentMetadataDTO metadata = new DocumentMetadataDTO(
+                    saved.getId(), saved.getFilename(), saved.getContentType(),
+                    saved.getSize(), saved.getUploadedByUserId(), saved.getUploadedAt(),
+                    saved.getDocumentType(), saved.getSha256Checksum()
+            );
+
+            return ResponseEntity.ok(new ApiResponseDTO<>(
+                    true,
+                    "Document uploaded successfully",
+                    metadata,
+                    getCurrentTimestamp()
+            ));
+
+        } catch (IllegalArgumentException ex) {
+            log.warn("Invalid upload request: {}", ex.getMessage());
+            return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
+                    false, ex.getMessage(), null, getCurrentTimestamp()
+            ));
+        } catch (Exception ex) {
+            log.error("Upload failed for user: {}",
+                    ((CustomUserDetails) authentication.getPrincipal()).getId(), ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(
+                            false, "Upload failed: " + ex.getMessage(), null, getCurrentTimestamp()
+                    ));
         }
     }
 
-    private Long getCurrentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
-            return ((CustomUserDetails) auth.getPrincipal()).getId();
+    // MULTIPLE FILES UPLOAD
+    @PreAuthorize("hasAnyRole('ADMIN','HEALTHCARE_PROVIDER','TUTOR')")
+    @PostMapping("/upload/multiple")
+    public ResponseEntity<ApiResponseDTO<MultipleUploadResponseDTO>> uploadMultipleDocuments(
+            @RequestParam("files") @NotNull List<MultipartFile> files,
+            Authentication authentication
+    ) {
+        try {
+            Long userId = ((CustomUserDetails) authentication.getPrincipal()).getId();
+            MultipleUploadResponseDTO result = documentService.saveMultipleDocuments(files, userId);
+
+            boolean allSuccessful = result.getFailedUploads().isEmpty();
+            HttpStatus status = allSuccessful ? HttpStatus.OK : HttpStatus.MULTI_STATUS;
+
+            return ResponseEntity.status(status).body(new ApiResponseDTO<>(
+                    allSuccessful,
+                    result.getSummary(),
+                    result,
+                    getCurrentTimestamp()
+            ));
+
+        } catch (IllegalArgumentException ex) {
+            log.warn("Invalid multiple upload request: {}", ex.getMessage());
+            return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
+                    false, ex.getMessage(), null, getCurrentTimestamp()
+            ));
+        } catch (Exception ex) {
+            log.error("Multiple upload failed for user: {}",
+                    ((CustomUserDetails) authentication.getPrincipal()).getId(), ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(
+                            false, "Multiple upload failed: " + ex.getMessage(), null, getCurrentTimestamp()
+                    ));
         }
-        throw new SecurityException("Unable to determine current user");
     }
 
+    // DELETE SINGLE DOCUMENT
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<ApiResponseDTO<Void>> deleteDocument(@PathVariable @NotNull Long id) {
+        try {
+            documentService.deleteDocumentById(id);
+            return ResponseEntity.ok(new ApiResponseDTO<>(
+                    true, "Document deleted successfully", null, getCurrentTimestamp()
+            ));
+
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponseDTO<>(false, ex.getMessage(), null, getCurrentTimestamp()));
+        } catch (Exception ex) {
+            log.error("Failed to delete document: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "Failed to delete document", null, getCurrentTimestamp()));
+        }
+    }
+
+    // DELETE MULTIPLE DOCUMENTS
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/delete/multiple")
+    public ResponseEntity<ApiResponseDTO<PartialDeleteResponseDTO>> deleteMultipleDocuments(
+            @RequestBody @NotNull List<Long> documentIds
+    ) {
+        try {
+            PartialDeleteResponseDTO result = documentService.deleteMultipleDocuments(documentIds);
+
+            // Determine response status and success flag
+            boolean isSuccess = result.getSuccessfullyDeleted() > 0;
+            HttpStatus status = result.isAllDeleted() ? HttpStatus.OK :
+                    result.isPartialDeletion() ? HttpStatus.MULTI_STATUS :
+                            HttpStatus.NOT_FOUND;
+
+            return ResponseEntity.status(status).body(new ApiResponseDTO<>(
+                    isSuccess,
+                    result.getSummary(),
+                    result,
+                    getCurrentTimestamp()
+            ));
+
+        } catch (IllegalArgumentException ex) {
+            log.warn("Invalid delete request: {}", ex.getMessage());
+            return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
+                    false, ex.getMessage(), null, getCurrentTimestamp()
+            ));
+        } catch (Exception ex) {
+            log.error("Failed to delete multiple documents: {}", documentIds, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(
+                            false,
+                            "Failed to delete documents: " + ex.getMessage(),
+                            null,
+                            getCurrentTimestamp()
+                    ));
+        }
+    }
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all")
@@ -741,8 +521,6 @@ public class DocumentController {
         }
     }
 
-
-
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/stats")
     public ResponseEntity<ApiResponseDTO<DocumentStatsResponseDTO>> getDocumentStats() {
@@ -766,5 +544,236 @@ public class DocumentController {
         }
     }
 
+    @GetMapping("/public/view/{id}")
+    @Transactional(readOnly = true)
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<?> viewDocumentPublic(@PathVariable @NotNull @Min(1) Long id, HttpServletRequest request) {
 
+        try {
+            // Rate limiting check (production security)
+            String clientIp = WebUtils.getClientIpAddress(request);
+            if (!rateLimitService.isAllowed(clientIp)) {
+                log.warn("Rate limit exceeded for IP: {} accessing document: {}", clientIp, id);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(new ApiResponseDTO<>(false, "Rate limit exceeded", null, getCurrentTimestamp()));
+            }
+
+            DocumentEntity document = documentService.getDocumentByIdPublic(id);
+
+            if (document.getData() == null || document.getData().length == 0) {
+                log.warn("Document data is empty for ID: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponseDTO<>(false, "Document not found", null, getCurrentTimestamp()));
+            }
+
+            ByteArrayResource resource = new ByteArrayResource(document.getData());
+            String sanitizedFilename = sanitizeFilename(document.getFilename());
+
+            // Log public access activity (important for monitoring)
+            log.info("Public document viewed - ID: {}, Filename: {}, IP: {}, UserAgent: {}",
+                    id, sanitizedFilename, clientIp, request.getHeader("User-Agent"));
+
+            return ResponseEntity.ok()
+                    .contentType(parseContentType(document.getContentType()))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("inline; filename=\"%s\"", sanitizedFilename))
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+                    .header("X-Content-Type-Options", "nosniff")
+                    .header("X-Frame-Options", "SAMEORIGIN")
+                    .header("X-RateLimit-Remaining", String.valueOf(rateLimitService.getRemainingRequests(clientIp)))
+                    .contentLength(document.getSize())
+                    .body(resource);
+
+        } catch (GlobalExceptionHandler.DocumentNotFoundException ex) {
+            log.warn("Document not found for public access: {}", id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponseDTO<>(false, "Document not found", null, getCurrentTimestamp()));
+        } catch (Exception ex) {
+            log.error("Failed to serve public document: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(false, "Failed to load document", null, getCurrentTimestamp()));
+        }
+    }
+
+    //    @RequestMapping(value = "/practiceImages", method = RequestMethod.OPTIONS)
+    @GetMapping("/public/practiceImages")
+    public ResponseEntity<ApiResponseDTO<List<DocumentMetadataDTO>>> getPracticeImages(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            HttpServletRequest request
+    ) {
+        try {
+            // Rate limiting for public endpoint
+            String clientIp = WebUtils.getClientIpAddress(request);
+            if (!rateLimitService.isAllowed(clientIp)) {
+                log.warn("Rate limit exceeded for practice images request from IP: {}", clientIp);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(new ApiResponseDTO<>(false, "Rate limit exceeded", null, getCurrentTimestamp()));
+            }
+
+            // Get practice images through service
+            List<DocumentEntity> practiceImages = documentService.getPracticeImages(page, size);
+
+            List<DocumentMetadataDTO> practiceImageDTOs = practiceImages.stream()
+                    .map(this::convertToMetadataDTO)
+                    .collect(Collectors.toList());
+
+            log.info("Practice images retrieved: {} images from IP: {}",
+                    practiceImageDTOs.size(), clientIp);
+
+            return ResponseEntity.ok()
+                    .body(new ApiResponseDTO<>(
+                            true,
+                            String.format("Retrieved %d practice images", practiceImageDTOs.size()),
+                            practiceImageDTOs,
+                            getCurrentTimestamp()
+                    ));
+
+//            return ResponseEntity.ok()
+//                    .header("Access-Control-Allow-Origin", "*")
+//                    .header("X-Content-Type-Options", "nosniff")
+//                    .header("X-Frame-Options", "SAMEORIGIN")
+//                    .header("X-RateLimit-Remaining", String.valueOf(rateLimitService.getRemainingRequests(clientIp)))
+//                    .body(new ApiResponseDTO<>(
+//                            true,
+//                            String.format("Retrieved %d practice images", practiceImageDTOs.size()),
+//                            practiceImageDTOs,
+//                            getCurrentTimestamp()
+//                    ));
+
+        } catch (Exception ex) {
+            log.error("Failed to retrieve practice images", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(
+                            false,
+                            "Failed to retrieve practice images: " + ex.getMessage(),
+                            null,
+                            getCurrentTimestamp()
+                    ));
+        }
+    }
+
+    @GetMapping("/public/debug/test")
+    public ResponseEntity<Map<String, String>> debugTest() {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "DocumentController is working");
+        response.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.ok()
+                .header("Access-Control-Allow-Origin", "*")
+                .body(response);
+    }
+
+    // Health check endpoint for public API
+    @GetMapping("/public/health")
+    public ResponseEntity<ApiResponseDTO<String>> publicHealthCheck() {
+        return ResponseEntity.ok()
+                .header("Access-Control-Allow-Origin", "*")
+                .body(new ApiResponseDTO<>(true, "Public API is healthy", "OK", getCurrentTimestamp()));
+    }
+
+    // ✅ ADD THIS NEW PUBLIC ENDPOINT
+    @GetMapping("/public/metadata")
+    public ResponseEntity<ApiResponseDTO<List<DocumentMetadataDTO>>> getPublicDocumentsMetadata(
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            HttpServletRequest request
+    ) {
+        try {
+            // Rate limiting for public endpoint
+            String clientIp = WebUtils.getClientIpAddress(request);
+            if (!rateLimitService.isAllowed(clientIp)) {
+                log.warn("Rate limit exceeded for public metadata request from IP: {}", clientIp);
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(new ApiResponseDTO<>(false, "Rate limit exceeded", null, getCurrentTimestamp()));
+            }
+
+            List<DocumentMetadataDTO> documents;
+
+            if (type != null && !type.trim().isEmpty()) {
+                try {
+                    DocumentEntity.DocumentType documentType = DocumentEntity.DocumentType.valueOf(type.toUpperCase());
+                    List<DocumentEntity> entities = documentService.getPublicDocumentsByType(documentType, page, size);
+                    documents = entities.stream()
+                            .map(this::convertToMetadataDTO)
+                            .toList();
+
+                    log.info("Public API: Retrieved {} documents of type: {} from IP: {}",
+                            documents.size(), documentType, clientIp);
+
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Invalid document type in public request: {}", type);
+                    return ResponseEntity.badRequest().body(new ApiResponseDTO<>(
+                            false, "Invalid document type: " + type + ". Valid types are: IMAGE, PDF",
+                            null, getCurrentTimestamp()
+                    ));
+                }
+            } else {
+                documents = documentService.getPublicDocumentsMetadata(page, size);
+            }
+
+            return ResponseEntity.ok()
+                    .header("Access-Control-Allow-Origin", "*")
+                    .header("X-RateLimit-Remaining", String.valueOf(rateLimitService.getRemainingRequests(clientIp)))
+                    .body(new ApiResponseDTO<>(
+                            true,
+                            String.format("Retrieved %d public documents", documents.size()),
+                            documents,
+                            getCurrentTimestamp()
+                    ));
+
+        } catch (Exception ex) {
+            log.error("Failed to retrieve public documents metadata with type: {}", type, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponseDTO<>(
+                            false,
+                            "Failed to retrieve documents: " + ex.getMessage(),
+                            null,
+                            getCurrentTimestamp()
+                    ));
+        }
+    }
+
+    private DocumentMetadataDTO convertToMetadataDTO(DocumentEntity document) {
+        return new DocumentMetadataDTO(
+                document.getId(),
+                document.getFilename(),
+                document.getContentType(),
+                document.getSize(),
+                document.getUploadedByUserId(),
+                document.getUploadedAt(),
+                document.getDocumentType(),
+                document.getSha256Checksum()
+        );
+    }
+
+    // Helper methods for the controller
+    private String sanitizeFilename(String filename) {
+        if (filename == null) return "document";
+        return filename.replaceAll("[^a-zA-Z0-9._-]", "_")
+                .replaceAll("_{2,}", "_")
+                .trim();
+    }
+
+    private MediaType parseContentType(String contentType) {
+        try {
+            return MediaType.parseMediaType(contentType);
+        } catch (Exception e) {
+            log.warn("Invalid content type: {}, using default", contentType);
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+    }
+
+    private Long getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
+            return ((CustomUserDetails) auth.getPrincipal()).getId();
+        }
+        throw new SecurityException("Unable to determine current user");
+    }
+
+    // Helper methods
+    private String getCurrentTimestamp() {
+        return LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+    }
 }
