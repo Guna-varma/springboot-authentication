@@ -15,9 +15,17 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+
+        String[] allowedOrigins = {
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "https://gs-hub.vercel.app",           // ✅ Your production frontend
+                "https://*.vercel.app"                 // ✅ All Vercel preview deployments
+        };
+
         // ✅ Authentication endpoints - need credentials
         registry.addMapping("/api/auth/**")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ Auth needs credentials
@@ -25,7 +33,7 @@ public class CorsConfig implements WebMvcConfigurer {
 
         // ✅ User endpoints - need credentials
         registry.addMapping("/api/users/**")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ User data needs credentials
@@ -33,63 +41,63 @@ public class CorsConfig implements WebMvcConfigurer {
 
         // ✅ Protected document endpoints - need credentials for authentication
         registry.addMapping("/api/document/all")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ Admin endpoint needs credentials
                 .maxAge(3600);
 
         registry.addMapping("/api/document/upload/**")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("POST", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ Upload needs credentials
                 .maxAge(3600);
 
         registry.addMapping("/api/document/metadata")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ Protected metadata needs credentials
                 .maxAge(3600);
 
         registry.addMapping("/api/document/my-documents")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ User documents need credentials
                 .maxAge(3600);
 
         registry.addMapping("/api/document/stats")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ Admin stats need credentials
                 .maxAge(3600);
 
         registry.addMapping("/api/document/*/download")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
 
         registry.addMapping("/api/document/delete/*")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
 
         registry.addMapping("/api/document/delete/multiple")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
 
         registry.addMapping("/api/document/debug/**")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // ✅ Debug endpoints need credentials
@@ -97,21 +105,21 @@ public class CorsConfig implements WebMvcConfigurer {
 
 //        // ✅ DELETE endpoints - need credentials
 //        registry.addMapping("/api/document/*")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("DELETE", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(true) // ✅ Delete needs admin credentials
 //                .maxAge(3600);
 //
 //        registry.addMapping("/api/document/multiple")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("DELETE", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(true) // ✅ Bulk delete needs admin credentials
 //                .maxAge(3600);
 
         registry.addMapping("/api/document/public/view/*")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(false)
@@ -119,7 +127,7 @@ public class CorsConfig implements WebMvcConfigurer {
 
         // ✅ Public document endpoints - no credentials needed
         registry.addMapping("/api/document/public/**")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(false) // ✅ Public endpoints don't need credentials
@@ -127,7 +135,7 @@ public class CorsConfig implements WebMvcConfigurer {
 
         // ✅ Practice images - no credentials needed
         registry.addMapping("/api/document/public/practiceImages")
-                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+                .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(false) // ✅ Public endpoint
@@ -137,14 +145,31 @@ public class CorsConfig implements WebMvcConfigurer {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration protectedConfig = new CorsConfiguration();
-        protectedConfig.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://127.0.0.1:3000"));
+
+//        protectedConfig.setAllowedOrigins(Arrays.asList(allowedOrigins));
+
+
+        // ✅ PRODUCTION: Set allowed origins from environment
+        String allowedOriginsEnv = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (allowedOriginsEnv != null) {
+            protectedConfig.setAllowedOrigins(Arrays.asList(allowedOriginsEnv.split(",")));
+        } else {
+            protectedConfig.setAllowedOrigins(Arrays.asList(
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "https://gs-hub.vercel.app",
+                    "https://*.vercel.app"
+            ));
+        }
+
         protectedConfig.setAllowedHeaders(Arrays.asList("*"));
         protectedConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         protectedConfig.setAllowCredentials(true);
         protectedConfig.setMaxAge(3600L);
 
         CorsConfiguration publicConfig = new CorsConfiguration();
-        publicConfig.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://127.0.0.1:3000"));
+
+        publicConfig.setAllowedOrigins(Arrays.asList(allowedOriginsEnv));
         publicConfig.setAllowedHeaders(Arrays.asList("*"));
         publicConfig.setAllowedMethods(Arrays.asList("GET", "OPTIONS"));
         publicConfig.setAllowCredentials(false);
@@ -198,7 +223,7 @@ public class CorsConfig implements WebMvcConfigurer {
 //    public void addCorsMappings(CorsRegistry registry) {
 //        // ✅ Authentication endpoints - need credentials
 //        registry.addMapping("/api/auth/**")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(true) // ✅ CRITICAL: Auth needs credentials
@@ -206,7 +231,7 @@ public class CorsConfig implements WebMvcConfigurer {
 //
 //        // ✅ User endpoints - need credentials
 //        registry.addMapping("/api/users/**")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(true) // ✅ CRITICAL: User data needs credentials
@@ -214,7 +239,7 @@ public class CorsConfig implements WebMvcConfigurer {
 //
 //        // ✅ Public document endpoints - no credentials
 //        registry.addMapping("/api/document/public/**")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("GET", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(false) // ✅ Public endpoints don't need credentials
@@ -222,7 +247,7 @@ public class CorsConfig implements WebMvcConfigurer {
 //
 //        // ✅ Practice images - no credentials
 //        registry.addMapping("/api/document/public/practiceImages/**")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("GET", "OPTIONS")
 //                .allowedHeaders("*")
 //                .allowCredentials(false)
@@ -232,14 +257,14 @@ public class CorsConfig implements WebMvcConfigurer {
 //    @Bean
 //    public CorsConfigurationSource corsConfigurationSource() {
 //        CorsConfiguration authConfig = new CorsConfiguration();
-//        authConfig.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://127.0.0.1:3000"));
+//        authConfig.setAllowedOrigins(Arrays.asList(allowedOrigins));
 //        authConfig.setAllowedHeaders(Arrays.asList("*"));
 //        authConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 //        authConfig.setAllowCredentials(true); // ✅ Auth endpoints need credentials
 //        authConfig.setMaxAge(3600L);
 //
 //        CorsConfiguration publicConfig = new CorsConfiguration();
-//        publicConfig.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://127.0.0.1:3000"));
+//        publicConfig.setAllowedOrigins(Arrays.asList(allowedOrigins));
 //        publicConfig.setAllowedHeaders(Arrays.asList("*"));
 //        publicConfig.setAllowedMethods(Arrays.asList("GET", "OPTIONS"));
 //        publicConfig.setAllowCredentials(false); // ✅ Public endpoints don't need credentials
@@ -277,7 +302,7 @@ public class CorsConfig implements WebMvcConfigurer {
 //    @Override
 //    public void addCorsMappings(CorsRegistry registry) {
 //        registry.addMapping("/api/**")
-//                .allowedOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+//                .allowedOrigins(allowedOrigins)
 //                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // ✅ Include OPTIONS
 //                .allowedHeaders("*")
 //                .allowCredentials(false) // ✅ Important for public endpoints
