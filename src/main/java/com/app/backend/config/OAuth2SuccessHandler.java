@@ -19,7 +19,7 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -51,16 +51,15 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             Role defaultRole = roleRepository.findByName("REGISTERED_USER")
                     .orElseThrow(() -> new RuntimeException("Default role not found"));
 
-            User newUser = new User();
-            newUser.setEmail(email);
-            newUser.setFullName(name);
-            newUser.setGender(Gender.NOT_SPECIFIED);
-            newUser.setEnabled(true);
-            newUser.setProvider(AuthProvider.GOOGLE);
-            newUser.setRole(defaultRole);
-            newUser.setCreatedAt(new Date());
-            newUser.setUpdatedAt(new Date());
-            newUser.setPassword(UUID.randomUUID().toString());
+            User newUser = User.builder()
+                    .email(email)
+                    .fullName(name)
+                    .gender(Gender.NOT_SPECIFIED)
+                    .enabled(true)
+                    .provider(AuthProvider.GOOGLE)
+                    .role(defaultRole)
+                    .password(UUID.randomUUID().toString()) // Random password for OAuth users
+                    .build();
 
             return userRepository.save(newUser);
         });

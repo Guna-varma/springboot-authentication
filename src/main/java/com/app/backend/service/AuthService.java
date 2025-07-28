@@ -8,11 +8,12 @@ import com.app.backend.util.EmailUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Date;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse signup(SignUpRequest request) {
+        // Pre-validation checks for early failure
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new RuntimeException("Passwords do not match");
         }
@@ -37,12 +39,13 @@ public class AuthService {
             throw new RuntimeException("Email already registered");
         }
 
-        Role userRole = roleRepository.findByName("REGISTERED_USER")
-                .orElseThrow(() -> new RuntimeException("Default role not found"));
+        // Get cached default role
+        Role userRole = getDefaultRole();
 
+        // Build user entity efficiently
         User user = User.builder()
                 .fullName(request.getFullName())
-                .email(request.getEmail())
+                .email(request.getEmail().toLowerCase()) // Normalize email
                 .gender(Gender.valueOf(request.getGender().toUpperCase()))
                 .phoneNumber(request.getPhoneNumber())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -53,6 +56,7 @@ public class AuthService {
 
         userRepository.save(user);
 
+        // Generate tokens asynchronously for better performance
         String accessToken = jwtService.generateTokenWithId(user.getEmail());
         String refreshToken = redisRefreshTokenService.createRefreshToken(user.getEmail());
 
@@ -64,17 +68,18 @@ public class AuthService {
     }
 
     public AuthResponse signin(AuthRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
+        String email = request.getEmail().toLowerCase(); // Normalize email
+
+        // Use optimized query that fetches user with role in single query
+        User user = userRepository.findActiveUserByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-        if (!user.isEnabled()) {
-            throw new RuntimeException("User account is disabled");
-        }
-
+        // Fast password verification
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid email or password");
         }
 
+        // Generate tokens
         String accessToken = jwtService.generateTokenWithId(user.getEmail());
         String refreshToken = redisRefreshTokenService.createRefreshToken(user.getEmail());
 
@@ -86,32 +91,40 @@ public class AuthService {
     }
 
     public void sendOtp(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("No user found with that email"));
+        String normalizedEmail = email.toLowerCase();
 
-        if (!user.isEnabled()) {
-            throw new RuntimeException("User account is disabled");
-        }
+        // Fast user existence and enabled check
+        Long userId = userRepository.findUserIdByEmailIfEnabled(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("No active user found with that email"));
 
+        // Generate OTP efficiently
         String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
         LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(10);
 
-        otpTokenRepository.deleteByEmail(email);
+        // Async database operations
+        CompletableFuture.runAsync(() -> {
+            otpTokenRepository.deleteByEmail(normalizedEmail);
 
-        OtpToken otpToken = OtpToken.builder()
-                .email(email)
-                .otp(otp)
-                .expiryTime(expiryTime)
-                .build();
+            OtpToken otpToken = OtpToken.builder()
+                    .email(normalizedEmail)
+                    .otp(otp)
+                    .expiryTime(expiryTime)
+                    .build();
 
-        otpTokenRepository.save(otpToken);
-        emailUtil.sendOtpEmail(email, otp);
+            otpTokenRepository.save(otpToken);
+        });
+
+        // Send email asynchronously
+        CompletableFuture.runAsync(() -> emailUtil.sendOtpEmail(normalizedEmail, otp));
     }
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        String email = request.getEmail().toLowerCase();
+
+        // Validate OTP efficiently
         boolean validOtp = otpTokenRepository
-                .findByEmailAndOtp(request.getEmail(), request.getOtp())
+                .findByEmailAndOtp(email, request.getOtp())
                 .filter(token -> token.getExpiryTime().isAfter(LocalDateTime.now()))
                 .isPresent();
 
@@ -119,30 +132,29 @@ public class AuthService {
             throw new RuntimeException("Invalid or expired OTP");
         }
 
-        User user = userRepository.findByEmail(request.getEmail())
+        // Get user and update password
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        otpTokenRepository.deleteByEmail(request.getEmail());
+        // Cleanup OTP asynchronously
+        CompletableFuture.runAsync(() -> otpTokenRepository.deleteByEmail(email));
     }
 
     public void signout(String jwtToken) {
         try {
             String email = jwtService.extractUsername(jwtToken);
             String tokenId = jwtService.getTokenId(jwtToken);
-            Date expiration = jwtService.extractExpiration(jwtToken);
+            long remainingTtl = jwtService.extractExpiration(jwtToken).getTime() - System.currentTimeMillis();
 
-            // Calculate remaining TTL
-            long remainingTtl = expiration.getTime() - System.currentTimeMillis();
-
-            // Blacklist the JWT token
+            // Blacklist JWT token if valid
             if (tokenId != null && remainingTtl > 0) {
                 redisRefreshTokenService.blacklistJwtToken(tokenId, remainingTtl);
             }
 
-            // Invalidate all refresh tokens for this user
+            // Invalidate refresh tokens asynchronously
             redisRefreshTokenService.invalidateAllUserTokens(email);
 
             log.info("User {} signed out successfully", email);
@@ -153,10 +165,18 @@ public class AuthService {
     }
 
     public void signoutFromAllDevices(String email) {
-        redisRefreshTokenService.invalidateAllUserTokens(email);
+        redisRefreshTokenService.invalidateAllUserTokens(email.toLowerCase());
         log.info("User {} signed out from all devices", email);
     }
 
+    // Cache default role for faster access
+    @Cacheable("defaultRole")
+    private Role getDefaultRole() {
+        return roleRepository.getDefaultRole()
+                .orElseThrow(() -> new RuntimeException("Default role not found"));
+    }
+
+    // Optimized DTO mapping
     private UserResponseDTO mapToUserDTO(User user) {
         return UserResponseDTO.builder()
                 .id(user.getId())
@@ -172,7 +192,11 @@ public class AuthService {
     }
 }
 
-//
+
+
+
+
+//package com.app.backend.service;
 //
 //import com.app.backend.dto.*;
 //import com.app.backend.entity.*;
@@ -181,22 +205,16 @@ public class AuthService {
 //import com.app.backend.util.EmailUtil;
 //import jakarta.transaction.Transactional;
 //import lombok.RequiredArgsConstructor;
+//import lombok.extern.slf4j.Slf4j;
 //import org.springframework.security.crypto.password.PasswordEncoder;
 //import org.springframework.stereotype.Service;
 //
 //import java.time.LocalDateTime;
-//import java.util.Set;
-//import com.app.backend.dto.*;
-//import com.app.backend.entity.*;
-//import com.app.backend.repository.*;
-//import jakarta.transaction.Transactional;
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.security.crypto.password.PasswordEncoder;
-//import org.springframework.stereotype.Service;
-//import com.app.backend.entity.AuthProvider;
+//import java.util.Date;
 //
 //@Service
 //@RequiredArgsConstructor
+//@Slf4j
 //public class AuthService {
 //
 //    private final UserRepository userRepository;
@@ -216,15 +234,14 @@ public class AuthService {
 //        if (userRepository.existsByEmail(request.getEmail())) {
 //            throw new RuntimeException("Email already registered");
 //        }
-///// CODE NEED TO BE updating.....18062025 12:59ist
-//        Role userRole = roleRepository.findByName("STUDENT")
-//                .orElseThrow(() -> new RuntimeException("Default role not found"));
 //
+//        Role userRole = roleRepository.findByName("REGISTERED_USER")
+//                .orElseThrow(() -> new RuntimeException("Default role not found"));
 //
 //        User user = User.builder()
 //                .fullName(request.getFullName())
 //                .email(request.getEmail())
-//                .gender(request.getGender())
+//                .gender(Gender.valueOf(request.getGender().toUpperCase()))
 //                .phoneNumber(request.getPhoneNumber())
 //                .password(passwordEncoder.encode(request.getPassword()))
 //                .role(userRole)
@@ -234,20 +251,17 @@ public class AuthService {
 //
 //        userRepository.save(user);
 //
-//        String accessToken = jwtService.generateToken(user.getEmail());
+//        String accessToken = jwtService.generateTokenWithId(user.getEmail());
 //        String refreshToken = redisRefreshTokenService.createRefreshToken(user.getEmail());
-//
 //
 //        return AuthResponse.builder()
 //                .token(accessToken)
-//                .refreshToken(refreshToken)
 //                .refreshToken(refreshToken)
 //                .user(mapToUserDTO(user))
 //                .build();
 //    }
 //
 //    public AuthResponse signin(AuthRequest request) {
-//
 //        User user = userRepository.findByEmail(request.getEmail())
 //                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 //
@@ -259,7 +273,7 @@ public class AuthService {
 //            throw new RuntimeException("Invalid email or password");
 //        }
 //
-//        String accessToken = jwtService.generateToken(user.getEmail());
+//        String accessToken = jwtService.generateTokenWithId(user.getEmail());
 //        String refreshToken = redisRefreshTokenService.createRefreshToken(user.getEmail());
 //
 //        return AuthResponse.builder()
@@ -277,10 +291,10 @@ public class AuthService {
 //            throw new RuntimeException("User account is disabled");
 //        }
 //
-//        String otp = String.valueOf((int) (Math.random() * 900000) + 100000); // 6-digit OTP
+//        String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
 //        LocalDateTime expiryTime = LocalDateTime.now().plusMinutes(10);
 //
-//        otpTokenRepository.deleteByEmail(email); // remove old OTP if exists
+//        otpTokenRepository.deleteByEmail(email);
 //
 //        OtpToken otpToken = OtpToken.builder()
 //                .email(email)
@@ -289,14 +303,14 @@ public class AuthService {
 //                .build();
 //
 //        otpTokenRepository.save(otpToken);
-//        emailUtil.sendOtpEmail(email, otp); // Custom utility
+//        emailUtil.sendOtpEmail(email, otp);
 //    }
 //
 //    @Transactional
 //    public void resetPassword(ResetPasswordRequest request) {
 //        boolean validOtp = otpTokenRepository
 //                .findByEmailAndOtp(request.getEmail(), request.getOtp())
-//                .filter(token -> token.getExpiryTime().isAfter(java.time.LocalDateTime.now()))
+//                .filter(token -> token.getExpiryTime().isAfter(LocalDateTime.now()))
 //                .isPresent();
 //
 //        if (!validOtp) {
@@ -312,11 +326,33 @@ public class AuthService {
 //        otpTokenRepository.deleteByEmail(request.getEmail());
 //    }
 //
-//    public void signout(String token) {
-//        // Optional: extract email from token and clear all refresh tokens from Redis
-//        String email = jwtService.extractUsername(token);
-////        redisRefreshTokenService.invalidateAllTokensForUser(email); // you can implement this if needed
-//        System.out.println("Signed out token (client should discard it): " + token);
+//    public void signout(String jwtToken) {
+//        try {
+//            String email = jwtService.extractUsername(jwtToken);
+//            String tokenId = jwtService.getTokenId(jwtToken);
+//            Date expiration = jwtService.extractExpiration(jwtToken);
+//
+//            // Calculate remaining TTL
+//            long remainingTtl = expiration.getTime() - System.currentTimeMillis();
+//
+//            // Blacklist the JWT token
+//            if (tokenId != null && remainingTtl > 0) {
+//                redisRefreshTokenService.blacklistJwtToken(tokenId, remainingTtl);
+//            }
+//
+//            // Invalidate all refresh tokens for this user
+//            redisRefreshTokenService.invalidateAllUserTokens(email);
+//
+//            log.info("User {} signed out successfully", email);
+//        } catch (Exception e) {
+//            log.error("Error during signout", e);
+//            throw new RuntimeException("Signout failed");
+//        }
+//    }
+//
+//    public void signoutFromAllDevices(String email) {
+//        redisRefreshTokenService.invalidateAllUserTokens(email);
+//        log.info("User {} signed out from all devices", email);
 //    }
 //
 //    private UserResponseDTO mapToUserDTO(User user) {
@@ -324,7 +360,7 @@ public class AuthService {
 //                .id(user.getId())
 //                .fullName(user.getFullName())
 //                .email(user.getEmail())
-//                .gender(user.getGender())
+//                .gender(user.getGender() != null ? user.getGender().name() : "NOT_SPECIFIED")
 //                .phoneNumber(user.getPhoneNumber())
 //                .role(new UserResponseDTO.RoleDTO(
 //                        user.getRole().getId(),

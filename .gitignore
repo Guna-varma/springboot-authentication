@@ -4,6 +4,8 @@ HELP.md
 .env.prod.properties    # prod vars (Railway)
 .env*
 
+GarbageCollector.txt
+
 /target/
 
 

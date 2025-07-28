@@ -6,6 +6,21 @@ server:
     min-response-size: 1024
   error:
     include-stacktrace: ${INCLUDE_STACKTRACE:never}
+    whitelabel:
+      enabled: false
+
+  tomcat:
+    threads:
+      max: 50        # Reduced for 200MB CPU
+      min-spare: 5   # Optimized for memory
+    max-connections: 100  # Reduced for limited memory
+    accept-count: 20
+    connection-timeout: 20000
+
+  servlet:
+    context-path: ""
+    session:
+      timeout: 30m
 
 spring:
   config:
@@ -27,7 +42,7 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
-      timeout: 3000ms
+      timeout: 2000ms
       ssl:
         enabled: ${REDIS_SSL}  # Enable SSL for Upstash
       lettuce:
@@ -36,6 +51,7 @@ spring:
           max-idle: ${REDIS_POOL_MAX_IDLE:8}
           min-idle: ${REDIS_POOL_MIN_IDLE:2}
           max-wait: 3000ms
+        shutdown-timeout: 100ms
 
 
   datasource:
@@ -49,8 +65,11 @@ spring:
       minimum-idle: ${DB_POOL_MIN_IDLE:3}
       idle-timeout: 300000
       max-lifetime: 600000
-      connection-timeout: 30000
+      connection-timeout: 20000
       leak-detection-threshold: 60000
+      validation-timeout: 5000
+      connection-test-query: SELECT 1
+      pool-name: HikariCP-Production
 
   jpa:
     hibernate:
@@ -61,13 +80,31 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         jdbc:
-          batch_size: 20
+          batch_size: 25
+          batch_versioned_data: true
           lob:
             non_contextual_creation: true
+
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+          region:
+            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+
         order_inserts: true
         order_updates: true
         batch_versioned_data: true
         format_sql: false
+        generate_statistics: false
+        connection:
+          provider_disables_autocommit: true
+        temp:
+          use_jdbc_metadata_defaults: false
+
+  cache:
+    type: jcache
+    jcache:
+      config: classpath:ehcache.xml
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -81,8 +118,9 @@ spring:
           starttls:
             enable: true
             required: true
-          timeout: 5000
-          connectiontimeout: 5000
+          timeout: 3000
+          connectiontimeout: 3000
+          writetimeout: 3000
 
   security:
     oauth2:
@@ -105,6 +143,16 @@ spring:
 
   mvc:
     dispatch-options-request: true
+    async:
+      request-timeout: 30000
+
+  task:
+    execution:
+      pool:
+        core-size: 2
+        max-size: 4
+        queue-capacity: 100
+      thread-name-prefix: async-task-
 
 
 jwt:
@@ -127,6 +175,11 @@ app:
     allowed-pdf-types: ${ALLOWED_PDF_TYPES:application/pdf}
     upload-path: ${UPLOAD_PATH:/tmp/uploads}
 
+  rate-limit:
+    requests-per-minute: 60
+    burst-capacity: 100
+    cleanup-interval: PT5M
+
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
     allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
@@ -137,7 +190,7 @@ app:
   security:
     token:
       cleanup-interval: ${TOKEN_CLEANUP_INTERVAL:PT1H}  # Clean up expired tokens every hour
-      max-user-tokens: ${MAX_USER_TOKENS:5}  # Maximum refresh tokens per user
+      max-user-tokens: ${MAX_USER_TOKENS:3}  # Maximum refresh tokens per user
 
 logging:
   level:
@@ -152,7 +205,7 @@ logging:
       org.springframework.security: ${SECURITY_LOG_LEVEL:DEBUG}
       org.springframework.security.oauth2: ${OAUTH2_LOG_LEVEL:INFO}  # ✅ ADDED: OAuth2 specific logging
       org.springframework.data.redis: ${REDIS_LOG_LEVEL:INFO}  # ✅ ADDED: Redis operations logging
-      org.hibernate.SQL: ${SQL_LOG_LEVEL:DEBUG}
+      org.hibernate.SQL: ${SQL_LOG_LEVEL:ERROR}
 
 
     web: ${WEB_LOG_LEVEL:INFO}
@@ -169,25 +222,41 @@ management:
   endpoints:
     web:
       exposure:
-        include: 'health,info,metrics,prometheus'
+        include: 'health,info,metrics'
+#        prometheus
       cors:
         allowed-origins: ${MANAGEMENT_CORS_ORIGINS:*}
+      base-path: /actuator
+
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
+#      show-details: always
       cache:
-        time-to-live: 10s
+        time-to-live: 30s
+    info:
+      cache:
+        time-to-live: 60s
+    metrics:
+      cache:
+        time-to-live: 30s
   health:
     redis:
       enabled: true
     db:
       enabled: true
+    mail:
+      enabled: false    # Disable to save resources
+
   metrics:
-    export:
-      prometheus:
-        enabled: ${RAILWAY_METRICS_ENABLED:true}
+#    export:
+#      prometheus:
+#        enabled: ${RAILWAY_METRICS_ENABLED:true}
 
         # ✅ ADDED: Custom metrics
     tags:
       application: ${spring.application.name:springboot-auth}
       environment: ${SPRING_PROFILE:dev}
+      export:
+        simple:
+          enabled: false  # Disable to save memory
