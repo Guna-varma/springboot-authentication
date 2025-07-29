@@ -1,6 +1,8 @@
 package com.app.backend.dto;
 
 import lombok.*;
+import com.app.backend.entity.AuthProvider;
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -13,6 +15,10 @@ public class UserResponseDTO {
     private String gender;
     private String phoneNumber;
     private RoleDTO role;
+    private boolean enabled;
+    private AuthProvider provider;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     @Data
     @AllArgsConstructor

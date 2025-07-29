@@ -42,6 +42,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // High-performance user validation
     @Query("SELECT u.id FROM User u WHERE u.email = :email AND u.enabled = true")
     Optional<Long> findUserIdByEmailIfEnabled(@Param("email") String email);
+
+
+    // ✅ Add these optimized methods for getAllUsers
+    @Query("SELECT u FROM User u JOIN FETCH u.role WHERE u.enabled = true ORDER BY u.createdAt DESC")
+    @QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
+    List<User> findAllEnabledUsersWithRole();
+
+    @Query("SELECT u FROM User u JOIN FETCH u.role ORDER BY u.createdAt DESC")
+    @QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
+    List<User> findAllUsersWithRole();
 }
 
 
