@@ -1,5 +1,6 @@
 package com.app.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -38,6 +39,7 @@ public class User {
     private String phoneNumber;
 
     @Column(nullable = true, length = 255) // Added length constraint for hashed password
+    @JsonIgnore
     private String password;
 
     @Column(nullable = false, columnDefinition = "boolean default true")

@@ -25,6 +25,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.io.IOException;
 //import java.nio.file.AccessDeniedException as FileAccessDeniedException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -550,5 +551,11 @@ public class GlobalExceptionHandler {
         }
     }
 
+    @ExceptionHandler(TextEntryNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleTextEntryNotFoundException(TextEntryNotFoundException ex) {
+        log.warn("TextEntry not found: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiResponseDTO<>(false, ex.getMessage(), null, Instant.now().toString()));
+    }
 
 }

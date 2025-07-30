@@ -194,6 +194,9 @@ app:
 
 logging:
   level:
+    com.app.backend.service.TextEntryService: INFO
+    org.springframework.cache: INFO
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     level:
       com:
         app:

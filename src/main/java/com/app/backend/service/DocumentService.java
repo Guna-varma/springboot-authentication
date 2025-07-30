@@ -895,33 +895,6 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
-//    public List<DocumentEntity> getPracticeImages(int page, int size) {
-//        List<DocumentEntity> allDocs = documentRepository.findAll();
-//        log.info("Total documents in DB: {}", allDocs.size());
-//
-//        List<DocumentEntity> publicDocs = allDocs.stream()
-//                .filter(this::isDocumentPubliclyAccessible)
-//                .collect(Collectors.toList());
-//        log.info("Public accessible documents: {}", publicDocs.size());
-//
-//        List<DocumentEntity> imageDocs = publicDocs.stream()
-//                .filter(doc -> doc.getDocumentType() == DocumentEntity.DocumentType.IMAGE)
-//                .collect(Collectors.toList());
-//        log.info("Public image documents: {}", imageDocs.size());
-//
-//        List<DocumentEntity> practiceImages = imageDocs.stream()
-//                .filter(doc -> doc.getFilename() != null &&
-//                        (doc.getFilename().toLowerCase().contains("practice") ||
-//                                doc.getFilename().toLowerCase().contains("spiritual")))
-//                .collect(Collectors.toList());
-//        log.info("Practice images found: {}", practiceImages.size());
-//
-//        return practiceImages.stream()
-//                .skip((long) page * size)
-//                .limit(size)
-//                .collect(Collectors.toList());
-//    }
-
 
     @Transactional(readOnly = true)
     public List<DocumentMetadataDTO> getPublicPracticeImages() {
