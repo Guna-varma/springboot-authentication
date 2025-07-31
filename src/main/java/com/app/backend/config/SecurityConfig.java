@@ -32,45 +32,6 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
-//    @Bean
-//    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-//        http
-//                .csrf(csrf -> csrf.disable())
-//                .cors(Customizer.withDefaults())
-////                .cors(cors -> cors.disable()) // ✅ Disable Spring Security CORS to use our custom filter
-//                .authorizeHttpRequests(authorize -> authorize
-//                        .requestMatchers(
-//                                "/api/auth/**",
-//                                "/api/otp/**",
-//                                "/api/cors-test/**",
-//                                "/swagger-ui/**",
-//                                "/v3/api-docs/**",
-//                                "/actuator/**",
-//                                "/api/document/public/**",
-//                                "/api/document/public/debug/test",
-//                                "/api/document/public/practiceImages", // ✅ Exact match
-//                                "/api/document/public/practiceImages/**" // ✅ With parameters
-//                        ).permitAll()
-//                        .requestMatchers("/actuator/**").hasRole("ADMIN")
-//                        .requestMatchers("/api/users/me").authenticated()
-//                        .requestMatchers("/api/users/updatePersonalInfo").authenticated()
-//                        .requestMatchers("/api/users/**").hasRole("ADMIN")
-//                        .anyRequest().authenticated()
-//                )
-//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//                .oauth2Login(oauth2 -> oauth2
-//                        .userInfoEndpoint(userInfo -> userInfo
-//                                .userService(customOAuth2UserService)
-//                        )
-//                        .successHandler(oAuth2SuccessHandler)
-//                );
-//
-//        // Register JWT filter before UsernamePasswordAuthenticationFilter
-//        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-//
-//        return http.build();
-//    }
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -88,9 +49,10 @@ public class SecurityConfig {
                                 "/api/document/public/**",           // ✅ All public document endpoints
                                 "/api/document/public/practiceImages",      // ✅ Practice images endpoint
                                 "/api/document/public/debug/test",   // ✅ Debug endpoint
-                                "/api/text/public/getAll",
+                                "/api/text/public/getAll**",
                                 "/api/text/public/countEntries",
-                                "/api/text/public/get/**"
+                                "/api/text/public/get/**",
+                                "/api/text/public/**"
                         ).permitAll()
 
                         // ✅ Admin-only endpoints
