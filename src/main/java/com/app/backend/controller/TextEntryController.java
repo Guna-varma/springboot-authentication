@@ -231,8 +231,8 @@ public class TextEntryController {
 
             // ✅ ASCII-safe cache status for headers
 //            String cacheStatus = duration < 25 ? "CACHE_HIT" : "CACHE_MISS";
-            String cacheStatus = duration < 50 ? "CACHE_HIT" : "CACHE_MISS";
-            String cacheEmoji = duration < 50 ? "🚀" : "🐌";
+            String cacheStatus = duration < 900 ? "CACHE_HIT" : "CACHE_MISS";
+            String cacheEmoji = duration < 900 ? "🚀" : "🐌";
 
             log.info("Listed entries - {}ms - {} {} from IP: {}",
                     duration, cacheEmoji, cacheStatus, getClientIp(request));
