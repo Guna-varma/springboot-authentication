@@ -48,4 +48,5 @@ public class CacheConfig {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return new GenericJackson2JsonRedisSerializer(objectMapper);
     }
+
 }

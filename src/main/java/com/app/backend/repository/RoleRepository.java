@@ -25,17 +25,3 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     @QueryHints(@QueryHint(name = "org.hibernate.cacheable", value = "true"))
     Optional<Role> getDefaultRole();
 }
-
-
-
-//package com.app.backend.repository;
-//
-//import com.app.backend.entity.Role;
-//import org.springframework.data.jpa.repository.JpaRepository;
-//import org.springframework.stereotype.Repository;
-//import java.util.Optional;
-//
-//@Repository
-//public interface RoleRepository extends JpaRepository<Role, Long> {
-//    Optional<Role> findByName(String name);
-//}

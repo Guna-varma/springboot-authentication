@@ -148,6 +148,8 @@ spring:
     dispatch-options-request: true
     async:
       request-timeout: 30000
+  main:
+    lazy-initialization: true
 
   task:
     execution:
