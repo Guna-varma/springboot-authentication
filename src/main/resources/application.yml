@@ -162,7 +162,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: ${JWT_EXPIRATION:900000}
+  expiration: ${JWT_EXPIRATION:1800000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
   issuer: ${JWT_ISSUER:springboot-auth}
   audience: ${JWT_AUDIENCE:api-users}

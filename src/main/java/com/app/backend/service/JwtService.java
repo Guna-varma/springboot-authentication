@@ -21,7 +21,7 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration:900000}") // 15 minutes default
+    @Value("${jwt.expiration:1800000}") // 15 minutes default
     private long expirationTime;
 
     private Key signingKey; // Cache the signing key
@@ -92,5 +92,9 @@ public class JwtService {
             log.debug("JWT parsing failed: {}", e.getMessage());
             throw new RuntimeException("Invalid JWT token");
         }
+    }
+
+    public Long getExpirationTime() {
+        return expirationTime;
     }
 }
