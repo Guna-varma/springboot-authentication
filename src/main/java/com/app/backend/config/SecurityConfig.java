@@ -46,13 +46,20 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/actuator/**",
-                                "/api/document/public/**",           // ✅ All public document endpoints
-                                "/api/document/public/practiceImages",      // ✅ Practice images endpoint
-                                "/api/document/public/debug/test",   // ✅ Debug endpoint
+                                "/api/document/public/**",
+                                "/api/document/public/practiceImages",
+                                "/api/document/public/debug/test",
                                 "/api/text/public/getAll**",
                                 "/api/text/public/countEntries",
                                 "/api/text/public/get/**",
-                                "/api/text/public/**"
+                                "/api/text/public/**",
+                                "/api/admissions/statistics",
+                                "/api/admissions/submit" ,
+                                "/api/admissions/status/*" ,
+                                "/api/admissions/health" ,
+                                "/api/admissions/all" ,
+                                "/api/admissions/updateStatus/*" ,
+                                "/api/admissions/updateBulkStatus"
                         ).permitAll()
 
                         // ✅ Admin-only endpoints

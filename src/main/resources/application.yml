@@ -172,6 +172,12 @@ app:
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
 
+  email:
+    enabled: true
+    retry-attempts: 3
+    retry-delay: 1000
+    from-name: Academy Admissions
+
   documents:
     max-image-size: ${MAX_IMAGE_SIZE:7340032}
     max-pdf-size: ${MAX_PDF_SIZE:10485760}

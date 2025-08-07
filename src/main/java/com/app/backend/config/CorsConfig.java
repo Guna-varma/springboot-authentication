@@ -32,6 +32,56 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         String[] allowedOrigins = getAllowedOrigins();
 
+        registry.addMapping("/api/admissions/statistics")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)  // ✅ Changed from false to true
+                .maxAge(3600);
+
+        registry.addMapping("/api/admissions/submit")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("POST", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)  // ✅ Changed from false to true
+                .maxAge(3600);
+
+        registry.addMapping("/api/admissions/status/*")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
+
+        registry.addMapping("/api/admissions/health")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
+
+        registry.addMapping("/api/admissions/all")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
+
+        registry.addMapping("/api/admissions/updateStatus/*")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("PUT", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
+
+        registry.addMapping("/api/admissions/updateBulkStatus")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("PUT", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
+                .maxAge(3600);
+
+
         // ✅ Public document endpoints - ALLOW CREDENTIALS for browser compatibility
         registry.addMapping("/api/document/public/**")
                 .allowedOrigins(allowedOrigins)
@@ -164,6 +214,8 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
+
+
     }
 
     @Bean
@@ -174,7 +226,8 @@ public class CorsConfig implements WebMvcConfigurer {
         CorsConfiguration publicConfig = new CorsConfiguration();
         publicConfig.setAllowedOrigins(Arrays.asList(allowedOrigins));
         publicConfig.setAllowedHeaders(Arrays.asList("*"));
-        publicConfig.setAllowedMethods(Arrays.asList("GET", "OPTIONS"));
+//        publicConfig.setAllowedMethods(Arrays.asList("GET", "OPTIONS"));
+        publicConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         publicConfig.setAllowCredentials(true);  // ✅ Changed from false to true
         publicConfig.setMaxAge(3600L);
 
@@ -192,6 +245,13 @@ public class CorsConfig implements WebMvcConfigurer {
         source.registerCorsConfiguration("/api/text/public/**", publicConfig);
         source.registerCorsConfiguration("/api/document/public/**", publicConfig);
         source.registerCorsConfiguration("/api/document/public/view/*", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/statistics", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/submit", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/status/*", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/health", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/all", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/updateStatus/*", publicConfig);
+        source.registerCorsConfiguration("/api/admissions/updateBulkStatus", publicConfig);
 
         // ✅ Protected endpoints
         source.registerCorsConfiguration("/api/text/create", protectedConfig);
